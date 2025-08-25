@@ -11,7 +11,8 @@
 
 //! Defines the units that the the cordinate decoder class is using
 enum class Unit{
-    cm
+    cm,
+    in
 };
 
 class CordDecoder{
@@ -29,10 +30,12 @@ class CordDecoder{
         //! Returns the total number of receivers in the system
         uint8_t getReceiverCount();
 
-        //! Find the offsets of a certain receiver using a known value
+        //! Find the offsets of a certain receiver using a two known distance
         //! and store them in the scaling factiors array
+        //! Takes the receiver index and the number of reads to take
+        //! for calibration
         //! TODO
-        int calcReceiverOffset(uint8_t receiver);
+        int calcReceiverOffset(uint8_t receiver, uint16_t numReads, double knownDistance1, double knownDistance2);
 
     private:
         //! Struct to hold the A and B values of the 
@@ -48,14 +51,22 @@ class CordDecoder{
         //! Receivers are indexed as an array (0 = the first receiver)
         //! and ( (max number of receivers)-1 = the last receiver)
         std::vector<Factor> scaleFactors;
+        //! Stores the counts that are read from the serial line
+        std::vector<uint32_t> recvCounts;
         //! Store the which unit is being used
         Unit unit;
         //! Store the serial interface with the receiver's microcontroller
         SerialInterface &serial;
+        //! Store the most recent calculated distance
+        uint32_t prevDistance;
 
         //! Private helper function to check if a receiver index is out of bounds
         //! or is unable to be used (future functionality)
         bool isReceiverOk(uint8_t receiver);
+
+        //! Function to help receive the serial output lines and store the counts
+        //! returns the number of bytes that were received
+        int serialRecvCounts();
 
 };
 

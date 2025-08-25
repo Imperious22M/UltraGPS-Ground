@@ -11,24 +11,21 @@ int main() {
     
     //! Instantiate serial device
     Serial rxDev(port_name,B19200); // Create the receiving device (Arduino)
-    //! Instntiate decoder class
-    CordDecoder decoder(rxDev, 2, Unit::cm);
-
-
-    std::cout << "Starting program..." << std::endl;
-    std::string line = "";
-    
     //! TODO Set a flag when read module is initiated
     rxDev.begin();
 
-    while(rxDev.readLineSer(line) > 0){
-        std::cout << "Received line: " << line << std::endl;
-        int cnt = 0;
-        std::cout << "ITOA Num: " << (cnt = atoi(line.c_str())) << std::endl;
-        int distance = 0.034375*cnt-63.875;
-        std::cout << "distance (cm): " << distance << std::endl;
-        std::cout << "decoder class distance: " << decoder.getDistance(0) << std::endl;
-        line = "";
+    //! Instantiate decoder class
+    CordDecoder decoder(rxDev, 1, Unit::in);
+    decoder.calcReceiverOffset(0,10,13.25, 12);
+    
+    //decoder.setOffset(0,0.034375,-63.875);
+
+
+    std::cout << "Starting program..." << std::endl;
+    
+
+    while(true){
+        std::cout << "Decoder class distance: " << decoder.getDistance(0) << "in" << std::endl;
     }
     
 }
