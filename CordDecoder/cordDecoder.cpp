@@ -1,6 +1,7 @@
 #include "cordDecoder.h"
 
-CordDecoder::CordDecoder(uint8_t numberOfReceivers, Unit unit){
+CordDecoder::CordDecoder(SerialInterface &serial,uint8_t numberOfReceivers, Unit unit):
+                        serial(serial){
     //! Initialize all offsets to 0 for all receivers
     for(int n=0;n<numberOfReceivers;n++){
         scaleFactors.push_back({0,0});

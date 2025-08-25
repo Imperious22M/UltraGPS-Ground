@@ -1,6 +1,7 @@
 //! file: This module contains all the calibration paramaters and suibroutines to calculate the x and y position 
 //! using the ultrasonic sensors
 
+#include "../interfaces/serialInterface.h"
 #include <iostream>
 #include <vector>
 #include <cstdint>
@@ -17,7 +18,7 @@ class CordDecoder{
     public:
         //! Constructor to initialiaze class from a given number of receivers
         //! with no previously known scaling factors
-        CordDecoder(uint8_t numberOfReceivers, Unit unit);
+        CordDecoder(SerialInterface &serial, uint8_t numberOfReceivers, Unit unit);
 
         //! set the offset of a certain receiver
         int setOffset(uint8_t receiver, double a, double b);
@@ -49,6 +50,8 @@ class CordDecoder{
         std::vector<Factor> scaleFactors;
         //! Store the which unit is being used
         Unit unit;
+        //! Store the serial interface with the receiver's microcontroller
+        SerialInterface &serial;
 
         //! Private helper function to check if a receiver index is out of bounds
         //! or is unable to be used (future functionality)
