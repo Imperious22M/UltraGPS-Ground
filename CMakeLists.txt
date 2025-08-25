@@ -12,7 +12,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 add_executable(UltraGpsXY
     main.cpp
     SerialModule/serial.cpp
+    CordDecoder/cordDecoder.cpp
 )
 
 # Include the directory for header files
 target_include_directories(UltraGpsXY PRIVATE SerialModule)
+target_include_directories(UltraGpsXY PRIVATE interfaces)
+target_include_directories(UltraGpsXY PRIVATE CordDecoder)
