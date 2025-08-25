@@ -20,11 +20,8 @@ int main() {
         int cnt = 0;
         std::cout << "ITOA Num: " << (cnt = atoi(line.c_str())) << std::endl;
         int distance = 0.034375*cnt-63.875;
-        std::cout << "distance: " << distance << std::endl;
+        std::cout << "distance (cm): " << distance << std::endl;
         line = "";
     }
     
-
-
-
 }
