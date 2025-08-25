@@ -68,7 +68,7 @@ int Serial::configurePort(){
     return 0;
 } 
 
-int Serial::readSer(void* buffer, size_t nBytes){
+int Serial::readSer(void* buffer, size_t nBytes) const{
     //! Attempt to read incoming bytes    
     int n = read(portFd, buffer, nBytes);
     if (n < 0) {
@@ -79,7 +79,8 @@ int Serial::readSer(void* buffer, size_t nBytes){
 
     return n;
 }
-int Serial::readLineSer(std::string& line){
+
+int Serial::readLineSer(std::string& line) const{
     //! A timeout will need to be implemented, but for now this is okay
     const uint8_t buffSize = 1; // Read character by character
     char buffer[buffSize]; // char buffer

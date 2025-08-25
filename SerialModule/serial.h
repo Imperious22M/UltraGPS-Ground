@@ -1,15 +1,20 @@
 //! file: Contains the class and helper routins to configure the serial port
 //! for reading
 
+#include "../interfaces/serialInterface.h"
 #include <fcntl.h>      // open
 #include <unistd.h>     // read, close
 #include <termios.h>    // termios, tcgetattr, tcsetattr
 #include <cstring>      // strerror
+#include <cstdint>
 #include <cerrno>
 #include <iostream>
 #include <string>
 
-class Serial{
+#ifndef SERIALMODULE
+#define SERIALMODULE
+
+class Serial : public SerialInterface{
     public:
         //! brief: Class constructor, must have baud and port
         //! specified at creation
@@ -17,16 +22,11 @@ class Serial{
         //! param[in] baud = Define entry from termios that matches the desired baud rate
         Serial(const char* fd, speed_t baud);
 
-        //! brief: Attempts to open and configure the port
-        int begin();
-        //! brief: Close the serial port and perform any cleanup
-        int end();
-
-       //! Read N-Bytes from the serial port
-       int readSer(void* buffer, size_t nBytes);
-       //! Read one newline-terminated line from the serial port
-       int readLineSer(std::string& line);
-
+        //! See the SerialInterface header file
+        int begin() override;
+        int end() override;
+        int readSer(void* buffer, size_t nBytes) const override;
+        int readLineSer(std::string& line) const override;
 
     private:
         const char* portName;
@@ -36,5 +36,6 @@ class Serial{
         //! brief: Configures the serial port to match
         //! the bahavior we want
        int configurePort(); 
-
 };
+
+#endif
