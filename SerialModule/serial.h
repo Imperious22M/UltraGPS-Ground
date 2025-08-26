@@ -27,6 +27,7 @@ class Serial : public SerialInterface{
         int end() override;
         int readSer(void* buffer, size_t nBytes) const override;
         int readLineSer(std::string& line) const override;
+        int clearReadBuffer() override;
 
     private:
         const char* portName;

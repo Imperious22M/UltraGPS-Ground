@@ -111,3 +111,8 @@ int Serial::readLineSer(std::string& line) const{
     // A line was succesfully read
     return n;
 }
+
+int Serial::clearReadBuffer(){
+
+    return tcflush(portFd,TCIFLUSH);
+}
