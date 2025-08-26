@@ -19,6 +19,8 @@ class SerialInterface{
         virtual int readSer(void* buffer, size_t nBytes) const = 0;
         //! Read one newline-terminated line from the serial port
         virtual int readLineSer(std::string& line) const = 0;
+        //! Clear the reading buffer
+        virtual int clearReadBuffer() = 0;
 };
 
 #endif

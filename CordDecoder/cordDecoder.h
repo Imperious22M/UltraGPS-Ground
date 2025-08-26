@@ -5,6 +5,9 @@
 #include <iostream>
 #include <vector>
 #include <cstdint>
+#include <sstream>
+#include <string>
+#include <vector>
 
 #ifndef CORDDECODERMODULE
 #define CORDDECODERMODULE
@@ -24,18 +27,20 @@ class CordDecoder{
         //! set the offset of a certain receiver
         int setOffset(uint8_t receiver, double a, double b);
 
-        //! Get the distance from a certain receiver
-        double getDistance(uint8_t receiver);
-
         //! Returns the total number of receivers in the system
         uint8_t getReceiverCount();
+
+        //! Prints the last calculated distances to the terminal
+        void printDistances();
 
         //! Find the offsets of a certain receiver using a two known distance
         //! and store them in the scaling factiors array
         //! Takes the receiver index and the number of reads to take
         //! for calibration
-        //! TODO
         int calcReceiverOffset(uint8_t receiver, uint16_t numReads, double knownDistance1, double knownDistance2);
+
+        //! Calculate the distances from all receivers
+        int calcDistances();
 
     private:
         //! Struct to hold the A and B values of the 
@@ -53,12 +58,14 @@ class CordDecoder{
         std::vector<Factor> scaleFactors;
         //! Stores the counts that are read from the serial line
         std::vector<uint32_t> recvCounts;
+        //! Stores the most recent calculated distances
+        std::vector<double> recvDistances;
         //! Store the which unit is being used
         Unit unit;
         //! Store the serial interface with the receiver's microcontroller
         SerialInterface &serial;
-        //! Store the most recent calculated distance
-        uint32_t prevDistance;
+        //! Store the separator between count readings
+        const char delimiter =  ',';
 
         //! Private helper function to check if a receiver index is out of bounds
         //! or is unable to be used (future functionality)
