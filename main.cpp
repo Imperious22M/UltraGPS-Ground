@@ -234,7 +234,7 @@ const uint16_t calDistances[numberOfReceivers][2] = {0};
 int main() {
     
     //! Instantiate serial device
-    Serial rxDev(port_name,B19200); // Create the receiving device (Arduino)
+    Serial rxDev(port_name); // Create the receiving device (Arduino)
     //! TODO Set a flag when read module is initiated
     if( rxDev.begin() < 0 ){
 
