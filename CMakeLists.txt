@@ -19,3 +19,7 @@ add_executable(UltraGpsXY
 target_include_directories(UltraGpsXY PRIVATE SerialModule)
 target_include_directories(UltraGpsXY PRIVATE interfaces)
 target_include_directories(UltraGpsXY PRIVATE CordDecoder)
+
+# TODO
+# Add windows binary suport
+# Add Linux dpkg and binary support

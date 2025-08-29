@@ -20,7 +20,7 @@ class Serial : public SerialInterface{
         //! specified at creation
         //! param[in] fd = Port Address
         //! param[in] baud = Define entry from termios that matches the desired baud rate
-        Serial(const char* fd, speed_t baud);
+        Serial(const char* fd, speed_t baud = B19200);
 
         //! See the SerialInterface header file
         int begin() override;
