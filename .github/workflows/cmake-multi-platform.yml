@@ -27,15 +27,17 @@ jobs:
         build_type: [Release]
         c_compiler: [gcc, cl]
         include:
-          - os: windows-latest
-            c_compiler: cl
-            cpp_compiler: cl
           - os: ubuntu-latest
             c_compiler: gcc
             cpp_compiler: g++
         exclude:
+          # Exclude all windows buids until the program is ready
           - os: windows-latest
             c_compiler: gcc
+          - os: windows-latest
+            c_compiler: cl
+            cpp_compiler: cl
+          # -----
           - os: ubuntu-latest
             c_compiler: cl
 
