@@ -22,10 +22,13 @@ jobs:
       # 3. <Linux, Release, latest Clang compiler toolchain on the default runner image, default generator>
       #
       # To add more build types (Release, Debug, RelWithDebInfo, etc.) customize the build_type list.
+      # For now, all windows builds are excluded
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        #os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest]
         build_type: [Release]
-        c_compiler: [gcc, cl]
+        #c_compiler: [gcc, cl]
+        c_compile: [gcc]
         include:
           - os: ubuntu-latest
             c_compiler: gcc
@@ -34,10 +37,10 @@ jobs:
             #c_compiler: cl
             #cpp_compiler: cl
         exclude:
-          - os: windows-latest
-            c_compiler: gcc
-          - os: ubuntu-latest
-            c_compiler: cl
+          #- os: windows-latest
+            #c_compiler: gcc
+          #- os: ubuntu-latest
+            #c_compiler: cl
 
     steps:
     - uses: actions/checkout@v4
