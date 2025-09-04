@@ -11,16 +11,29 @@
 //! Serial port name of the receiving microcontroller
 const char* port_name = "/dev/ttyACM0"; 
 //! Total number of receivers in the system
-const uint8_t numberOfReceivers = 3;
-//! Array of two calibration distances for each receiver
+const uint8_t numberOfReceivers = 6;
+//! Array of the two KNOWN calibration distances for each receiver
+//! Index 0 for a particular receiver is the receivers distance to 
+//! calibration point 0, and index 1 is the distance to calibration 
+//! distance 2
+//! Distances in cm
 const double calDistances[numberOfReceivers][2] = {
-    //! R1
-    {45,60},
-    //! R3
-    {45,60},
-    //! R5
-    {45,33}
+    //! R1 (A0)
+    {425,528},
+    //! R2 (A1)
+    {307,307+297},
+    //! R3 (A2)
+    {419,530},
+    //! R4 (A3)
+    {412,327},
+    //! R5 (A4)
+    {459,162},
+    //! R6 (A5)
+    {410,337}
 };
+
+//! Calibration parameters
+static constexpr uint8_t calReads = 50;
 
 
 int main() {
@@ -34,16 +47,15 @@ int main() {
 
     //! Instantiate decoder class
     CordDecoder decoder(rxDev, numberOfReceivers, Unit::cm);
-    //! Used for initial calibration
-    //R1
-    //decoder.calcReceiverOffset(0,50,calDistances[0][0],calDistances[0][1]);
-    //R2
-    //decoder.calcReceiverOffset(1,50,calDistances[1][0],calDistances[1][1]);
-    //R3
-    //decoder.calcReceiverOffset(2,50,calDistances[2][0],calDistances[2][1]);
-    decoder.setOffset(0,0.0384,-73.4615);
-    decoder.setOffset(1,0.0341686,-55.8656);
-    decoder.setOffset(2,0.0451128,-88.1278);
+    //! Run calibration routines for all receivers
+    for(int r=0;r<numberOfReceivers;r++){
+        decoder.calcReceiverOffset(r,calReads,calDistances[r][0],calDistances[r][1]);
+    }
+    //! ALL decoders MUST have offsets in order to return a distance 
+    //! other than 0. 
+    //decoder.setOffset(0,0.0384,-73.4615);
+    //decoder.setOffset(1,0.0341686,-55.8656);
+    //decoder.setOffset(2,0.0451128,-88.1278);
 
     std::cout << "Starting program..." << std::endl;
     while(true){
