@@ -86,7 +86,7 @@ void CordDecoder::printDistances(){
     std::cout << std::endl;
 }
 
-int CordDecoder::calcReceiverOffset(uint8_t receiver, uint16_t numReads, double knownDistance1, double knownDistance2){
+int CordDecoder::calcSingleReceiverOffset(uint8_t receiver, uint16_t numReads, double knownDistance1, double knownDistance2){
     std::cout << "Receiver: " << receiver << " number of reads: " << numReads << std::endl;
     std::cout << "Known distance 1: " << knownDistance1 << " Known distance 2: " << knownDistance2 << std::endl;
 

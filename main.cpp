@@ -19,7 +19,7 @@
 #ifdef LINUX
 const char* port_name = "/dev/ttyACM0"; 
 #else
-const char* port_name = "/dev/ttyS2"; 
+const char* port_name = "/dev/ttyS0"; 
 #endif
 //! Total number of receivers in the system
 const uint8_t numberOfReceivers = 6;

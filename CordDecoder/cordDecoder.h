@@ -32,12 +32,15 @@ class CordDecoder{
         CordDecoder(SerialInterface &serial, uint8_t numberOfReceivers, Unit unit);
 
         //! Find the offsets of a certain receiver using a two known distance
-        //! and store them in the scaling factiors array
+        //! and store them in the scaling factors array
         //! Takes the receiver index and the number of reads to take
         //! for calibration
         //! TODO: ADD HISTOGRAM AVERAGE METHOD
-        int calcReceiverOffset(uint8_t receiver, uint16_t numReads, 
+        int calcSingleReceiverOffset(uint8_t receiver, uint16_t numReads, 
                             double knownDistance1, double knownDistance2);
+
+        //! TOOD: Add a multi-receiver calibration function and make
+        //! single receiver calculaiton function use that
 
         //! set the offset of a certain receiver
         int setOffset(uint8_t receiver, double a, double b);
@@ -130,9 +133,13 @@ class CordDecoder{
         bool isReceiverOk(uint8_t receiver);
 
         //! Function to help receive the serial output lines and store the counts
+        //! in an private array buffer (recvCounts)
         //! returns the number of bytes that were received
         int serialRecvCounts();
 
+        //! Gets X number of valid counts from serial and returns the 
+        //! most common count using a histogram of the counts received
+        int getValidCounts(uint8_t countsNeeded)
 
 };
 

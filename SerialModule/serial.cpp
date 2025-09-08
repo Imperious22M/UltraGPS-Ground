@@ -31,6 +31,9 @@ int Serial::configurePort(){
     struct termios tty;
     //! Cygwin has an issue where it does not recognize the port
     //! as a serial device until the Arduino IDE sets it up...
+
+    
+
     if (tcgetattr(portFd, &tty) != 0) {
         std::cerr << "Error from tcgetattr: " << strerror(errno) << std::endl;
         return -1;
