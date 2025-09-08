@@ -11,6 +11,8 @@
 #include <array>
 #include <cmath>
 #include <limits>
+#include <unordered_map>
+#include <algorithm>
 
 #ifndef CORDDECODERMODULE
 #define CORDDECODERMODULE
@@ -85,6 +87,11 @@ class CordDecoder{
             double eps1 = 1e-8,
             double eps2 = 1e-8);
 
+        //! TEMP AREA
+
+        //! Gets X number of valid counts from all receivers and returns the 
+        //! status of the counts received
+        int getHistogramCounts(uint8_t numReads, std::vector<uint32_t>& validCounts);
     private:
         //! Struct to hold the A and B values of the 
         //! m=Ax+B equation.
@@ -135,11 +142,10 @@ class CordDecoder{
         //! Function to help receive the serial output lines and store the counts
         //! in an private array buffer (recvCounts)
         //! returns the number of bytes that were received
+        //! TODO: Add basic count validation to this function 
+        //! (aka if number is too large throw it out and set that count to 0)
         int serialRecvCounts();
 
-        //! Gets X number of valid counts from serial and returns the 
-        //! most common count using a histogram of the counts received
-        int getValidCounts(uint8_t countsNeeded)
 
 };
 

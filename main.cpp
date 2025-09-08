@@ -59,6 +59,11 @@ int main() {
     //! Instantiate decoder class
     CordDecoder decoder(rxDev, numberOfReceivers, Unit::cm);
     //! Run calibration routines for all receivers
+    std::cout << "test" << std::endl;
+    std::vector<uint32_t> validCounts;
+    decoder.getHistogramCounts(2, validCounts);
+
+    exit(0);
     /*
     for(int r=0;r<numberOfReceivers;r++){
         decoder.calcReceiverOffset(r,calReads,calDistances[r][0],calDistances[r][1]);

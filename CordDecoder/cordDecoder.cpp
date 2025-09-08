@@ -15,11 +15,12 @@ CordDecoder::CordDecoder(SerialInterface &serial,uint8_t numberOfReceivers, Unit
 bool CordDecoder::isReceiverOk(uint8_t receiver){
     //! Check if the receiver index is out of bounds
     if(receiver > (scaleFactors.size()-1) ){
+        std::cerr << "receiver:" << receiver << "is out of bounds" << std::endl;
         return false;
+    }else{
+        //! Future implementations may include other checks
+        return true;
     }
-    //! Future implementations may include other checks
-
-    return true;
 }
 
 int CordDecoder::serialRecvCounts(){
@@ -86,6 +87,83 @@ void CordDecoder::printDistances(){
     std::cout << std::endl;
 }
 
+int CordDecoder::getHistogramCounts(uint8_t numReads, std::vector<uint32_t>& validCounts){
+    //! Dummy string for "storing" user input (used to flush serial buffer)
+    std::string dummy;
+    //! Bytes received from serial bus
+    int bytesRecv = 0;
+    //! Store the number of valid reads for each receiver
+    //! Index corresponds to receiver (0 -> receiver 1, etc)
+    std::vector<uint32_t> validReads;
+    //! Define a Histogram entry
+    struct entry{
+        uint32_t count;         //! Count for this entry
+        uint32_t occurences;    //! Number of occurences for this entry
+    };
+    //! Stores the histogram for all receivers
+    //std::vector<std::vector<entry>> receiverHistograms;
+    //! Key: Value read, pair: frequency
+    std::vector<std::unordered_map<uint32_t, uint32_t>> receiverHistograms;
+
+    if(numReads<=0){
+        std::cerr << "Number of reads needs to be greater than 0" << std::endl;
+    }
+
+    for(int x=0; x < getReceiverCount(); x++){
+        if(isReceiverOk(x)){
+            //! Receiver index is out of bounds or unusable
+            std::cout << "receiver error";
+            return -1;
+        }else{
+            //! Add empty inner vectors
+            validReads.emplace_back();
+        }
+    }
+
+    //! Clear the read buffer
+    serial.clearReadBuffer(); 
+    //! Skip the first line after buffer was cleared
+    serial.readLineSer(dummy);
+
+    //! Receive counts and store them in the histogram
+    //! TODO: throw away counts that are too far the median
+    bool doneFlag = false; //! True if all receivers have valid counts
+    do{
+        //! Receive a serial line
+        bytesRecv = serialRecvCounts();
+        if(bytesRecv<0){
+            //! Fail on serial error
+            std::cerr << "Failed to calibrate, serial error" << std::endl;
+        } else if(bytesRecv == 0){
+            //! Skip empty lines
+            std::cout << "empty" << std::endl;
+            continue;
+        }
+
+        //! Make the histogram for each receiver
+        for(int x=0;x < getReceiverCount();x++){    
+            //! TODO: Decide if, when implemented, getReceiverCount filtering is enought
+            //! For now use every count that is received
+            if(receiverHistograms[x].count(recvCounts[x])){
+                // If the key (count) exists increment it
+                receiverHistograms[x][recvCounts[x]]++;
+            }else{
+                //! Create an entry for that particular count
+                receiverHistograms[x][recvCounts[x]] = 1;
+            }
+        }
+    }while(!doneFlag);
+
+    for(auto histogram : receiverHistograms){
+        std::cout << "Histogram contents: " << std::endl;
+        for(auto key: histogram){
+            std::cout << key.first << " " << key.second << std::endl;
+        }
+    }
+
+    return 0;
+}
+
 int CordDecoder::calcSingleReceiverOffset(uint8_t receiver, uint16_t numReads, double knownDistance1, double knownDistance2){
     std::cout << "Receiver: " << receiver << " number of reads: " << numReads << std::endl;
     std::cout << "Known distance 1: " << knownDistance1 << " Known distance 2: " << knownDistance2 << std::endl;
@@ -99,14 +177,14 @@ int CordDecoder::calcSingleReceiverOffset(uint8_t receiver, uint16_t numReads, d
     int avgCounts2 = 0;
     //! Dummy string for "storing" user input
     std::string dummy;
-    bool skipFirstLine = false;
+    //bool skipFirstLine = false;
 
     if( !isReceiverOk(receiver) ){
      //! Receiver index is out of bounds or unusable
      return -1;
     }
     
-    if(numReads == 0){
+    if(numReads <= 0){
         std::cerr << "There needs to be at least 1 reading for calibration" << std::endl;
         return -1;
     }
