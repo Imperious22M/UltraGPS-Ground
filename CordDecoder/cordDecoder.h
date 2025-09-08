@@ -101,10 +101,20 @@ class CordDecoder{
         //! Stores the most recent calculated distances
         std::vector<double> recvDistances;
 
-        //! Receiver tower position in the grid, in cm!
-        //! R1,R3,R5
-        std::vector<CordDecoder::Point> anchors = {{35.5,-28},{35.5,28},{-35.5,28}};
-        //! Test code
+        //! Receiver tower position in the grid, in cm
+        //! NEED TO BE CHANGED TO MATCH THE GRID!
+        //! First entry is R0, then R1, then R2...
+        std::vector<CordDecoder::Point> anchors = {
+            {-307, -293.9},
+            {-307, 0},
+            {-307, 281.15},
+            {459, -284.05},
+            {459, 0},
+            {459, 292.46}
+        };
+
+
+        //! Position variables
         CordDecoder::Point truePos {0, 0};
         std::vector<double> ranges;
 

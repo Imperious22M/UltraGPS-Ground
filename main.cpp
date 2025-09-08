@@ -8,8 +8,19 @@
 #include <limits>
 #include <iostream>
 
+//! Define flag for compiling in Windows using cygwin
+#define WINDOWS
+
+#ifndef WINDOWS
+#define LINUX
+#endif
+
 //! Serial port name of the receiving microcontroller
+#ifdef LINUX
 const char* port_name = "/dev/ttyACM0"; 
+#else
+const char* port_name = "/dev/ttyS2"; 
+#endif
 //! Total number of receivers in the system
 const uint8_t numberOfReceivers = 6;
 //! Array of the two KNOWN calibration distances for each receiver
@@ -33,7 +44,7 @@ const double calDistances[numberOfReceivers][2] = {
 };
 
 //! Calibration parameters
-static constexpr uint8_t calReads = 50;
+static constexpr uint8_t calReads = 5;
 
 
 int main() {
@@ -48,14 +59,20 @@ int main() {
     //! Instantiate decoder class
     CordDecoder decoder(rxDev, numberOfReceivers, Unit::cm);
     //! Run calibration routines for all receivers
+    /*
     for(int r=0;r<numberOfReceivers;r++){
         decoder.calcReceiverOffset(r,calReads,calDistances[r][0],calDistances[r][1]);
     }
+    */
+
     //! ALL decoders MUST have offsets in order to return a distance 
     //! other than 0. 
-    //decoder.setOffset(0,0.0384,-73.4615);
-    //decoder.setOffset(1,0.0341686,-55.8656);
-    //decoder.setOffset(2,0.0451128,-88.1278);
+    decoder.setOffset(0, 0.0354561, -30.6465);
+    decoder.setOffset(1, 0.0812363, -468.319);  //! May need re-calibration
+    decoder.setOffset(2, 0.0357028, -10.0762);
+    decoder.setOffset(3, 0.0353283, -31.3001);
+    decoder.setOffset(4, 0.0807504, -302.961);  //! May need re-calibration
+    decoder.setOffset(5, 0.0345808, -19.5969);
 
     std::cout << "Starting program..." << std::endl;
     while(true){

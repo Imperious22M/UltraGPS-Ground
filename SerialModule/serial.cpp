@@ -29,15 +29,18 @@ int Serial::end(){
 
 int Serial::configurePort(){
     struct termios tty;
-
+    //! Cygwin has an issue where it does not recognize the port
+    //! as a serial device until the Arduino IDE sets it up...
     if (tcgetattr(portFd, &tty) != 0) {
         std::cerr << "Error from tcgetattr: " << strerror(errno) << std::endl;
         return -1;
     }
 
-    cfsetospeed(&tty, baudRate);
     cfsetispeed(&tty, baudRate);
+    cfsetospeed(&tty, baudRate);
 
+/*
+*/
     tty.c_cflag &= ~PARENB;          // No parity
     tty.c_cflag &= ~CSTOPB;          // 1 stop bit
     tty.c_cflag &= ~CSIZE;
