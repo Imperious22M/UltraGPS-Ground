@@ -96,7 +96,6 @@ int CordDecoder::getHistogramCounts(uint8_t numReads, std::vector<uint32_t>& val
     //! Index corresponds to receiver (0 -> receiver 1, etc)
     std::vector<uint32_t> maxValidReads;
     //! Stores the histogram for all receivers
-    //std::vector<std::vector<entry>> receiverHistograms;
     //! Key: Value read, pair: frequency
     std::vector<std::unordered_map<uint32_t, uint32_t>> receiverHistograms;
 
@@ -188,7 +187,6 @@ int CordDecoder::getHistogramCounts(uint8_t numReads, std::vector<uint32_t>& val
         validCounts.push_back(tickCnt);
         index++;
     }
-    //! print the element with the highest frequency in each histogram
 
     return 0;
 }

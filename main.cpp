@@ -10,6 +10,7 @@
 
 //! Define flag for compiling in Windows using cygwin
 #define WINDOWS
+#define DEBUG
 
 #ifndef WINDOWS
 #define LINUX
