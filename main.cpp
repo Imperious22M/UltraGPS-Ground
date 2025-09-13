@@ -9,7 +9,7 @@
 #include <iostream>
 
 //! Define flag for compiling in Windows using cygwin
-#define WINDOWS
+#define LINUX
 #define DEBUG
 
 #ifndef WINDOWS
@@ -18,7 +18,7 @@
 
 //! Serial port name of the receiving microcontroller
 #ifdef LINUX
-const char* port_name = "/dev/ttyACM0"; 
+const char* port_name = "/dev/ttyUSB0"; 
 #else
 const char* port_name = "/dev/ttyS2"; 
 #endif
