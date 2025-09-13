@@ -19,7 +19,7 @@
 #ifdef LINUX
 const char* port_name = "/dev/ttyACM0"; 
 #else
-const char* port_name = "/dev/ttyS0"; 
+const char* port_name = "/dev/ttyS2"; 
 #endif
 //! Total number of receivers in the system
 const uint8_t numberOfReceivers = 6;
@@ -62,14 +62,14 @@ int main() {
     std::cout << "test" << std::endl;
     std::vector<uint32_t> validCounts;
     decoder.getHistogramCounts(2, validCounts);
+    std::cout << "Main Loop Counts " << std::endl;
+    for(int x=0;x<decoder.getReceiverCount();x++){
+        std::cout<<"Most frequent count for: " << x;
+        std::cout<<" is: " << validCounts[x] << std::endl;
+    }
 
     exit(0);
-    /*
-    for(int r=0;r<numberOfReceivers;r++){
-        decoder.calcReceiverOffset(r,calReads,calDistances[r][0],calDistances[r][1]);
-    }
-    */
-
+    
     //! ALL decoders MUST have offsets in order to return a distance 
     //! other than 0. 
     decoder.setOffset(0, 0.0354561, -30.6465);

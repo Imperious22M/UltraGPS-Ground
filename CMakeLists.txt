@@ -15,6 +15,9 @@ add_executable(UltraGpsXY
     CordDecoder/cordDecoder.cpp
 )
 
+# Set debug flags for building during development phase
+add_compile_options(-g)
+
 # Include the directory for header files
 target_include_directories(UltraGpsXY PRIVATE SerialModule)
 target_include_directories(UltraGpsXY PRIVATE interfaces)

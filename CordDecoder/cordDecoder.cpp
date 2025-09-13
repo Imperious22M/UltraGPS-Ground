@@ -92,14 +92,9 @@ int CordDecoder::getHistogramCounts(uint8_t numReads, std::vector<uint32_t>& val
     std::string dummy;
     //! Bytes received from serial bus
     int bytesRecv = 0;
-    //! Store the number of valid reads for each receiver
+    //! Stores the highest number of valid reads inside each histogram
     //! Index corresponds to receiver (0 -> receiver 1, etc)
-    std::vector<uint32_t> validReads;
-    //! Define a Histogram entry
-    struct entry{
-        uint32_t count;         //! Count for this entry
-        uint32_t occurences;    //! Number of occurences for this entry
-    };
+    std::vector<uint32_t> maxValidReads;
     //! Stores the histogram for all receivers
     //std::vector<std::vector<entry>> receiverHistograms;
     //! Key: Value read, pair: frequency
@@ -110,13 +105,14 @@ int CordDecoder::getHistogramCounts(uint8_t numReads, std::vector<uint32_t>& val
     }
 
     for(int x=0; x < getReceiverCount(); x++){
-        if(isReceiverOk(x)){
+        if(!isReceiverOk(x)){
             //! Receiver index is out of bounds or unusable
-            std::cout << "receiver error";
+            std::cout << "receiver error " << x << std::endl;
             return -1;
         }else{
             //! Add empty inner vectors
-            validReads.emplace_back();
+            maxValidReads.push_back(0);
+            receiverHistograms.emplace_back();
         }
     }
 
@@ -124,10 +120,10 @@ int CordDecoder::getHistogramCounts(uint8_t numReads, std::vector<uint32_t>& val
     serial.clearReadBuffer(); 
     //! Skip the first line after buffer was cleared
     serial.readLineSer(dummy);
-
+    
     //! Receive counts and store them in the histogram
     //! TODO: throw away counts that are too far the median
-    bool doneFlag = false; //! True if all receivers have valid counts
+    bool doneFlag = false;
     do{
         //! Receive a serial line
         bytesRecv = serialRecvCounts();
@@ -136,9 +132,14 @@ int CordDecoder::getHistogramCounts(uint8_t numReads, std::vector<uint32_t>& val
             std::cerr << "Failed to calibrate, serial error" << std::endl;
         } else if(bytesRecv == 0){
             //! Skip empty lines
-            std::cout << "empty" << std::endl;
+            std::cout << "empty " << std::endl;
             continue;
         }
+        std::cout << "received" << std::endl;
+        for(auto toa : recvCounts){
+            std::cout << " " << toa;
+        }
+        std::cout << std::endl;
 
         //! Make the histogram for each receiver
         for(int x=0;x < getReceiverCount();x++){    
@@ -146,20 +147,48 @@ int CordDecoder::getHistogramCounts(uint8_t numReads, std::vector<uint32_t>& val
             //! For now use every count that is received
             if(receiverHistograms[x].count(recvCounts[x])){
                 // If the key (count) exists increment it
-                receiverHistograms[x][recvCounts[x]]++;
+                receiverHistograms[x][recvCounts[x]] += 1;
+                uint32_t readCount = receiverHistograms[x][recvCounts[x]];
+                if(readCount > maxValidReads[x]){
+                    //! Store the maximum read count of any tick value
+                    maxValidReads[x] = readCount;
+                }
             }else{
-                //! Create an entry for that particular count
+                //! Create an entry for that particular tick count
                 receiverHistograms[x][recvCounts[x]] = 1;
             }
+
+            //! Check if we have received the minimum valid reads for all
+            //! receivers, if so exit the loop
+            if( maxValidReads[x] >= numReads ){
+                doneFlag = true;
+            }else{
+                doneFlag = false;
+                std::cout << "not ready" << std::endl;
+            }
         }
+
+
     }while(!doneFlag);
 
+    //! For debugging purposes
+    uint32_t index = 0;
     for(auto histogram : receiverHistograms){
-        std::cout << "Histogram contents: " << std::endl;
+        std::cout << "Histogram contents: " << index << std::endl;
+        uint32_t maxFreq = 0;
+        uint32_t tickCnt = 0;
         for(auto key: histogram){
             std::cout << key.first << " " << key.second << std::endl;
+            if(key.second > maxFreq){
+                maxFreq = key.second;
+                tickCnt = key.first;
+            }
         }
+        std::cout << "Max tickCnt: " << tickCnt << " max frequency: " << maxFreq << std::endl;
+        validCounts.push_back(tickCnt);
+        index++;
     }
+    //! print the element with the highest frequency in each histogram
 
     return 0;
 }
