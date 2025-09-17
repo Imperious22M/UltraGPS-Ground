@@ -7,6 +7,9 @@
 #include <cmath>
 #include <limits>
 #include <iostream>
+//! Control logging level at compile time
+#define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_OFF
+#include "spdlog/include/spdlog/spdlog.h"
 
 //! Define flag for compiling in Windows using cygwin
 #define LINUX
@@ -56,17 +59,19 @@ int main() {
     if( rxDev.begin() < 0 ){
         return -1;
     }
+    spdlog::set_level(spdlog::level::debug); 
+    SPDLOG_INFO("Serial port initialized");
 
     //! Instantiate decoder class
     CordDecoder decoder(rxDev, numberOfReceivers, Unit::cm);
     //! Run calibration routines for all receivers
-    std::cout << "test" << std::endl;
+    SPDLOG_INFO("Running calibration routines...");
     std::vector<uint32_t> validCounts;
     decoder.getHistogramCounts(2, validCounts);
-    std::cout << "Main Loop Counts " << std::endl;
+    SPDLOG_INFO("Main Loop Counts");
     for(int x=0;x<decoder.getReceiverCount();x++){
-        std::cout<<"Most frequent count for: " << x;
-        std::cout<<" is: " << validCounts[x] << std::endl;
+        SPDLOG_INFO("Most frequent count for: {}", x);
+        SPDLOG_INFO(" is: {}", validCounts[x]);
     }
 
     exit(0);
