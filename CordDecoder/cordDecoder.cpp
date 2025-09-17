@@ -333,7 +333,11 @@ int CordDecoder::calcAllReceiverOffsets(uint16_t numReads, const std::vector<std
     }
     //! Calculate the scaling factors for each receiver
     for(int x=0;x<getReceiverCount();x++){
-        double a = (knownDistances[x][0] - knownDistances[x][1])/static_cast<double>(validCounts1[x]-validCounts2[x]);
+        double a = (knownDistances[x][0] - knownDistances[x][1]) / (static_cast<double>(validCounts1[x]) - validCounts2[x]);
+        SPDLOG_INFO("Known Dist diff: {} validCnt diff = {} res A = {}", (knownDistances[x][0] - knownDistances[x][1]), (validCounts1[x]-validCounts2[x]), a);
+        
+        //double a = (static_cast<double>(validCounts1[x]-validCounts2[x])) / (knownDistances[x][0] - knownDistances[x][1]);
+        
         double b = (knownDistances[x][0] - (a*validCounts1[x]));
         scaleFactors[x].a = a;
         scaleFactors[x].b = b;

@@ -19,7 +19,7 @@
 
 //! Serial port name of the receiving microcontroller
 #ifdef LINUX
-const char* port_name = "/dev/ttyUSB0"; 
+const char* port_name = "/dev/ttyACM0"; 
 #else
 const char* port_name = "/dev/ttyS2"; 
 #endif
@@ -28,8 +28,8 @@ const uint8_t numberOfReceivers = 6;
 
 //! Array of the two KNOWN calibration distances for each receiver
 //! Index 0 for a particular receiver is the receivers distance to 
-//! calibration point 0, and index 1 is the distance to calibration 
-//! distance 2
+//! calibration point 1, and index 1 is the distance to calibration 
+//! point 2
 //! Distances in cm
 const std::vector<std::array<double, 2>> calDistances = {
     //! R1 (A0)
@@ -64,28 +64,20 @@ int main() {
     //! Instantiate decoder class
     CordDecoder decoder(rxDev, numberOfReceivers, Unit::cm);
     //! Run calibration routines for all receivers
-    SPDLOG_INFO("Running calibration routines...");
-    std::vector<uint32_t> validCounts;
-    decoder.getHistogramCounts(2, validCounts);
-    SPDLOG_INFO("Main Loop Counts");
-    for(int x=0;x<decoder.getReceiverCount();x++){
-        SPDLOG_INFO("Most frequent count for: {}", x);
-        SPDLOG_INFO(" is: {}", validCounts[x]);
-    }
-
+    SPDLOG_INFO("Running calibration routine...");
     decoder.calcAllReceiverOffsets(calReads, calDistances);
 
-    exit(0);
+    //exit(0);
 
     
     //! ALL decoders MUST have offsets in order to return a distance 
     //! other than 0. 
-    decoder.setOffset(0, 0.0354561, -30.6465);
-    decoder.setOffset(1, 0.0812363, -468.319);  //! May need re-calibration
-    decoder.setOffset(2, 0.0357028, -10.0762);
-    decoder.setOffset(3, 0.0353283, -31.3001);
-    decoder.setOffset(4, 0.0807504, -302.961);  //! May need re-calibration
-    decoder.setOffset(5, 0.0345808, -19.5969);
+    //decoder.setOffset(0, 0.0354561, -30.6465);
+    //decoder.setOffset(1, 0.0812363, -468.319);  //! May need re-calibration
+    //decoder.setOffset(2, 0.0357028, -10.0762);
+    //decoder.setOffset(3, 0.0353283, -31.3001);
+    //decoder.setOffset(4, 0.0807504, -302.961);  //! May need re-calibration
+    //decoder.setOffset(5, 0.0345808, -19.5969);
 
     std::cout << "Starting program..." << std::endl;
     while(true){
