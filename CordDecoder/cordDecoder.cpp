@@ -295,6 +295,54 @@ int CordDecoder::calcSingleReceiverOffset(uint8_t receiver, uint16_t numReads, d
     return 0;
 }
 
+int CordDecoder::calcAllReceiverOffsets(uint16_t numReads, const std::vector<std::array<double,2>>& knownDistances){
+    std::string dummy;
+    std::vector<uint32_t> validCounts1;
+    std::vector<uint32_t> validCounts2;
+
+    std::cout << "Calibrating all receivers with " << numReads << " reads each" << std::endl;
+    std::cout << "Move the tower to known distance 1 and press enter" << std::endl;
+    if(numReads <= 0){
+        SPDLOG_ERROR("There needs to be at least 1 reading for calibration");
+        return -1;
+    }
+    std::getline(std::cin, dummy);  // Wait for the user to press enter
+
+    //! Get the first round of valid counts from the first known distance
+    SPDLOG_DEBUG("Getting first round of valid counts");
+    int ret = getHistogramCounts(numReads, validCounts1);
+    if(ret<0){
+        SPDLOG_ERROR("Error getting first round of valid counts");
+        return -1;
+    }
+    for(int x=0;x<validCounts1.size();x++){
+        SPDLOG_DEBUG("Receiver: {} Count: {}", x, validCounts1[x]);
+    }
+
+    //! Get the second round of valid counts from the second known distance
+    std::cout << "Move tower to distance 2, press enter when done" << std::endl;
+    std::getline(std::cin, dummy);  // Wait for the user to press enter
+    SPDLOG_DEBUG("Getting second round of valid counts");
+    ret = getHistogramCounts(numReads, validCounts2);
+    if(ret<0){
+        SPDLOG_ERROR("Error getting second round of valid counts");
+        return -1;
+    }
+    for(int x=0;x<validCounts2.size();x++){
+        SPDLOG_DEBUG("Receiver: {} Count: {}", x, validCounts2[x]);
+    }
+    //! Calculate the scaling factors for each receiver
+    for(int x=0;x<getReceiverCount();x++){
+        double a = (knownDistances[x][0] - knownDistances[x][1])/static_cast<double>(validCounts1[x]-validCounts2[x]);
+        double b = (knownDistances[x][0] - (a*validCounts1[x]));
+        scaleFactors[x].a = a;
+        scaleFactors[x].b = b;
+        SPDLOG_INFO("Receiver: {} Scale factor A = {} Scale factor B = {}", x, a, b);
+    }
+    
+    return 0;
+}
+
 int CordDecoder::calcDistances(){
     int bytesRecv = 0;
 
@@ -316,7 +364,6 @@ int CordDecoder::calcDistances(){
 
     return 0;
 }
-
 
 CordDecoder::Point CordDecoder::solve2x2(const double M[2][2], const double v[2], bool &ok) {
     double det = M[0][0]*M[1][1] - M[0][1]*M[1][0];

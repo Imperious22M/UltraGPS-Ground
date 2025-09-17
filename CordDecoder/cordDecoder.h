@@ -42,6 +42,14 @@ class CordDecoder{
         int calcSingleReceiverOffset(uint8_t receiver, uint16_t numReads, 
                             double knownDistance1, double knownDistance2);
 
+        //! Calculate all receivers using the histogram method
+        //! and store the offsets in the scaling factors array
+        //! Offsets is a 2d vector where the first index is the receiver
+        //! and the second index is the A or B value (0 = A, 1 = B)
+        //! Ex: offsets[n][0] = A value for receiver n
+        //!     offsets[n][1] = B value for receiver n
+        int calcAllReceiverOffsets(uint16_t numReads, const std::vector<std::array<double,2>>& knownDistances);
+
         //! TOOD: Add a multi-receiver calibration function and make
         //! single receiver calculaiton function use that
 

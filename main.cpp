@@ -25,12 +25,13 @@ const char* port_name = "/dev/ttyS2";
 #endif
 //! Total number of receivers in the system
 const uint8_t numberOfReceivers = 6;
+
 //! Array of the two KNOWN calibration distances for each receiver
 //! Index 0 for a particular receiver is the receivers distance to 
 //! calibration point 0, and index 1 is the distance to calibration 
 //! distance 2
 //! Distances in cm
-const double calDistances[numberOfReceivers][2] = {
+const std::vector<std::array<double, 2>> calDistances = {
     //! R1 (A0)
     {425,528},
     //! R2 (A1)
@@ -72,7 +73,10 @@ int main() {
         SPDLOG_INFO(" is: {}", validCounts[x]);
     }
 
+    decoder.calcAllReceiverOffsets(calReads, calDistances);
+
     exit(0);
+
     
     //! ALL decoders MUST have offsets in order to return a distance 
     //! other than 0. 
