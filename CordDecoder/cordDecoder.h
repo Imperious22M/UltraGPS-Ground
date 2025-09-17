@@ -13,6 +13,7 @@
 #include <limits>
 #include <unordered_map>
 #include <algorithm>
+#include <spdlog/spdlog.h>
 
 #ifndef CORDDECODERMODULE
 #define CORDDECODERMODULE
@@ -28,7 +29,7 @@ class CordDecoder{
 
         //! Struct to hold the various x,y cordinates for various things
         struct Point { double x, y; };
-
+        
         //! Constructor to initialiaze class from a given number of receivers
         //! with no previously known scaling factors
         CordDecoder(SerialInterface &serial, uint8_t numberOfReceivers, Unit unit);

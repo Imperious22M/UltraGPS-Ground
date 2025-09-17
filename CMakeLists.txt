@@ -28,6 +28,8 @@ target_include_directories(UltraGpsXY PRIVATE interfaces)
 target_include_directories(UltraGpsXY PRIVATE CordDecoder)
 # Add spdlog to the target
 target_link_libraries(UltraGpsXY PRIVATE spdlog::spdlog)
+# Define SPDLOG_ACTIVE_LEVEL for the target
+target_compile_definitions(UltraGpsXY PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
 
 # TODO
 # Add windows binary suport

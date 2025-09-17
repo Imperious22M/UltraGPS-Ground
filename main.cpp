@@ -7,9 +7,7 @@
 #include <cmath>
 #include <limits>
 #include <iostream>
-//! Control logging level at compile time
-#define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_OFF
-#include "spdlog/include/spdlog/spdlog.h"
+#include <spdlog/spdlog.h>
 
 //! Define flag for compiling in Windows using cygwin
 #define LINUX
