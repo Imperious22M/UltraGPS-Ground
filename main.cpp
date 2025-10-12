@@ -69,7 +69,6 @@ int main() {
 
     //exit(0);
 
-    
     //! ALL decoders MUST have offsets in order to return a distance 
     //! other than 0. 
     //decoder.setOffset(0, 0.0354561, -30.6465);
