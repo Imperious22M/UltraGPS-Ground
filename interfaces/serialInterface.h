@@ -11,7 +11,7 @@ class SerialInterface{
     public:
 
         //! brief: Attempts to open and configure the port
-        virtual int begin() = 0;
+        virtual int begin(const char* portName, speed_t baudRate) = 0;
         //! brief: Close the serial port and perform any cleanup
         virtual int end() = 0;
 

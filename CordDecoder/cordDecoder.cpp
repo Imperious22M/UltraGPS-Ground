@@ -1,15 +1,20 @@
 #include "cordDecoder.h"
 
-CordDecoder::CordDecoder(SerialInterface &serial,uint8_t numberOfReceivers, Unit unit):
+CordDecoder::CordDecoder(SerialInterface &serial):
                         serial(serial){
+                            // Empty constructor
+}
+
+
+int CordDecoder::begin(uint8_t numberOfReceivers, Unit unit){
     //! Initialize all offsets and counts to 0 for all receivers
     for(int n=0;n<numberOfReceivers;n++){
         scaleFactors.push_back({0,0});
         recvCounts.push_back(0);
         recvDistances.push_back(0);
     }
-    //! Store the unit type we are using
     this->unit = unit;
+    return 1;
 }
 
 bool CordDecoder::isReceiverOk(uint8_t receiver){

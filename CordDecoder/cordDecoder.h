@@ -32,7 +32,12 @@ class CordDecoder{
         
         //! Constructor to initialiaze class from a given number of receivers
         //! with no previously known scaling factors
-        CordDecoder(SerialInterface &serial, uint8_t numberOfReceivers, Unit unit);
+        //CordDecoder(SerialInterface &serial, uint8_t numberOfReceivers, Unit unit);
+        CordDecoder(SerialInterface &serial);
+
+        //! Initialization method, MUST be called before any other methods
+        //! Returns 1 on success, negative value on failure
+        int begin(uint8_t numberOfReceivers, Unit unit);
 
         //! Find the offsets of a certain receiver using a two known distance
         //! and store them in the scaling factors array
