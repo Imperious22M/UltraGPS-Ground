@@ -8,10 +8,14 @@
 #include <limits>
 #include <iostream>
 #include <spdlog/spdlog.h>
+#include <toml++/toml.h>
+#include <fstream>
+
+#include "SettingsModule/settings.h"
 
 //! Define flag for compiling in Windows using cygwin
+//! DEBUG flag is defined in CMakeLists.txt
 #define LINUX
-#define DEBUG
 
 #ifndef WINDOWS
 #define LINUX
@@ -49,36 +53,93 @@ const std::vector<std::array<double, 2>> calDistances = {
 //! Calibration parameters
 static constexpr uint8_t calReads = 5;
 
+//! Global Settings
+SettingsModule settings;
+std::string serialPort;
+uint8_t numReceivers;
+uint8_t numCalReads;
 
-int main() {
-    
+//! Serial interface object
+Serial rxDev; // Create the receiving device (Arduino)
+//! Instantiate decoder class
+CordDecoder decoder(rxDev);
+
+//! Initialization routine to setup various things
+int init(){
+    spdlog::set_level(spdlog::level::debug); 
+    SPDLOG_INFO("Initializing UltraGPS Positioning System...");
     //! Instantiate serial device
-    Serial rxDev(port_name); // Create the receiving device (Arduino)
-    //! TODO Set a flag when read module is initiated
-    if( rxDev.begin() < 0 ){
+    //! TODO Set a flag when SERIAL module is initiated
+    if( rxDev.begin(port_name, B19200) < 0 ){
+        SPDLOG_ERROR("Failed to open serial port {}", port_name);
         return -1;
     }
-    spdlog::set_level(spdlog::level::debug); 
-    SPDLOG_INFO("Serial port initialized");
+    SPDLOG_INFO("Serial port {} opened at 19200 baud", port_name);
 
-    //! Instantiate decoder class
-    CordDecoder decoder(rxDev, numberOfReceivers, Unit::cm);
-    //! Run calibration routines for all receivers
-    SPDLOG_INFO("Running calibration routine...");
-    decoder.calcAllReceiverOffsets(calReads, calDistances);
+    // Load the calibration data
+    if (settings.getSerialPort(serialPort)) {
+        SPDLOG_INFO("Using serial port from settings: {}", serialPort);
+    } else {
+        SPDLOG_WARN("Serial port not set");
+    }
+
+    if (settings.getNumberOfReceivers(numReceivers)) {
+        decoder.begin(numReceivers, Unit::cm);
+        SPDLOG_INFO("Num Receivers: {}", numReceivers);
+    } else {
+        SPDLOG_WARN("Number of receivers not set");
+    }
+    
+    if (settings.getCalibrationReads(numCalReads)) {
+        SPDLOG_INFO("Num Calibration Reads: {}", numCalReads);
+    } else {
+        SPDLOG_WARN("Calibration reads not set");
+    }
+    
+    std::vector<std::array<double, 2>> loadedDistances = settings.getCalibrationDistances();
+    if (loadedDistances.size() == numberOfReceivers) {
+        SPDLOG_INFO("Loaded calibration distances:");
+        for (size_t i = 0; i < loadedDistances.size(); ++i) {
+            SPDLOG_INFO("Receiver {}: {}, {}", i, loadedDistances[i][0], loadedDistances[i][1]);
+        }
+    } else {
+        SPDLOG_WARN("Calibration distances not set or incomplete");
+    }
+
+    if (settings.hasCalibrationData()) {
+        SPDLOG_INFO("Loading calibration offsets...");
+        for (size_t i = 0; i < numberOfReceivers; ++i) {
+            double slope, intercept;
+            if (settings.getReceiverOffset(i, slope, intercept)) {
+                decoder.setOffset(i, slope, intercept);
+                SPDLOG_INFO("Receiver {} Offset: Slope={}, Intercept={}", i, slope, intercept);
+            } else {
+                SPDLOG_WARN("Offset for receiver {} not set", i);
+            }
+        }
+    } else {
+        SPDLOG_WARN("No calibration data found. Please run calibration.");
+    }
+
+    return 1;
+}
+
+int main() {
+
+    if(init() < 0){
+        SPDLOG_ERROR("Failed to initialize positioning system...exiting");
+        return -1;
+    }else{
+        SPDLOG_INFO("Initialization complete");
+    }
+
 
     //exit(0);
 
-    //! ALL decoders MUST have offsets in order to return a distance 
-    //! other than 0. 
-    //decoder.setOffset(0, 0.0354561, -30.6465);
-    //decoder.setOffset(1, 0.0812363, -468.319);  //! May need re-calibration
-    //decoder.setOffset(2, 0.0357028, -10.0762);
-    //decoder.setOffset(3, 0.0353283, -31.3001);
-    //decoder.setOffset(4, 0.0807504, -302.961);  //! May need re-calibration
-    //decoder.setOffset(5, 0.0345808, -19.5969);
+    //! Run calibration routines for all receivers
+    SPDLOG_INFO("Running calibration routine...");
+    //decoder.calcAllReceiverOffsets(calReads, calDistances);
 
-    std::cout << "Starting program..." << std::endl;
     while(true){
         decoder.calcDistances();
         decoder.printDistances();

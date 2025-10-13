@@ -2,19 +2,26 @@
 
 #include "serial.h"
 
-Serial::Serial(const char* name, speed_t baud):portName(name),
-        baudRate(baud){};
+Serial::Serial():portName(nullptr),
+        portFd(-1),
+        baudRate(B19200){};
 
-int Serial::begin(){
+int Serial::begin(const char* portName, speed_t baudRate){
+    this->portName = portName;
+    this->baudRate = baudRate;
+    if (portName == nullptr) {
+        SPDLOG_ERROR("Port name not specified");
+        return -1;
+    }
     //! Attempt to open the serial port
     portFd = open(portName, O_RDWR | O_NOCTTY | O_SYNC);
     if (portFd < 0) {
-        std::cerr << "Error opening " << portName << ": " << strerror(errno) << std::endl;
+        SPDLOG_ERROR("Error opening {}: {}", portName, strerror(errno)); 
         return -1;
     }
-    
     //! If the port fails to open, close the file descriptor
     if (configurePort() != 0) {
+        SPDLOG_ERROR("Failed to configure port {}", portName);
         close(portFd);
         return -1;
     }
@@ -32,10 +39,8 @@ int Serial::configurePort(){
     //! Cygwin has an issue where it does not recognize the port
     //! as a serial device until the Arduino IDE sets it up...
 
-    
-
     if (tcgetattr(portFd, &tty) != 0) {
-        std::cerr << "Error from tcgetattr: " << strerror(errno) << std::endl;
+        SPDLOG_ERROR("Error from tcgetattr: {}", strerror(errno));
         return -1;
     }
 
@@ -67,7 +72,7 @@ int Serial::configurePort(){
     tty.c_cc[VMIN] = 0;              // Return as soon as any data is available
 
     if (tcsetattr(portFd, TCSANOW, &tty) != 0) {
-        std::cerr << "Error from tcsetattr: " << strerror(errno) << std::endl;
+        SPDLOG_ERROR("Error from tcsetattr: {}", strerror(errno));
         return -1;
     }
 
@@ -78,7 +83,7 @@ int Serial::readSer(void* buffer, size_t nBytes) const{
     //! Attempt to read incoming bytes    
     int n = read(portFd, buffer, nBytes);
     if (n < 0) {
-        std::cerr << "Read error: " << strerror(errno) << std::endl;
+        SPDLOG_ERROR("Read error: {}", strerror(errno));
         close(portFd);
         return -1;
     }

@@ -10,6 +10,7 @@
 #include <cerrno>
 #include <iostream>
 #include <string>
+#include <spdlog/spdlog.h>
 
 #ifndef SERIALMODULE
 #define SERIALMODULE
@@ -17,13 +18,12 @@
 class Serial : public SerialInterface{
     public:
         //! brief: Class constructor, must have baud and port
-        //! specified at creation
-        //! param[in] fd = Port Address
-        //! param[in] baud = Define entry from termios that matches the desired baud rate
-        Serial(const char* fd, speed_t baud = B19200);
+        Serial();
 
         //! See the SerialInterface header file
-        int begin() override;
+        //! param[in] fd = Port Address
+        //! param[in] baud = Define entry from termios that matches the desired baud rate
+        int begin(const char* portName, speed_t baudRate = B19200) override;
         int end() override;
         int readSer(void* buffer, size_t nBytes) const override;
         int readLineSer(std::string& line) const override;
