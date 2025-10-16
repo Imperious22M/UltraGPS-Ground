@@ -81,8 +81,35 @@ int CordDecoder::setOffset(uint8_t receiver, double a, double b){
     return 0;
 }
 
+int CordDecoder::getOffset(uint8_t receiver, double &a, double &b){
+    if( !isReceiverOk(receiver) ){
+        //! Receiver index is out of bounds or unusable
+        return -1;
+    }
+    a = scaleFactors[receiver].a;
+    b = scaleFactors[receiver].b;
+    return 0;
+}
+
 uint8_t CordDecoder::getReceiverCount(){
     return scaleFactors.size();
+}
+
+int CordDecoder::setAnchors(const std::vector<std::array<double, 2>>& anchors){
+    if(anchors.size() != getReceiverCount()){
+        std::cerr << "Number of anchors does not match number of receivers" << std::endl;
+        return -1;
+    }
+
+    //! Clear out old anchors
+    this->anchors.clear();
+
+    for(int i=0; i<anchors.size(); i++){
+        Point anchorPoint{anchors[i][0], anchors[i][1]};
+        this->anchors.push_back(anchorPoint);
+    }
+
+    return 0;
 }
 
 void CordDecoder::printDistances(){
@@ -592,6 +619,12 @@ void CordDecoder::getPosition(){
     //    double dy = truePos.y - a.y;
     //    ranges.push_back(std::sqrt(dx*dx + dy*dy));
     //}
+
+    //! If anchors is not setup (call to setAnchors)
+    if(anchors.size() != getReceiverCount()){
+        SPDLOG_ERROR("Anchors not set or number of anchors does not match number of receivers");
+        return;
+    }
 
     CordDecoder::Point guess = initialGuessFromRanges(anchors, recvDistances);
     std::cout << "Initial guess: (" << guess.x << ", " << guess.y << ")\n";

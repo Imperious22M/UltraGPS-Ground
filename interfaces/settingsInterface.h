@@ -19,10 +19,18 @@ public:
     //! Number of receivers setting
     virtual void setNumberOfReceivers(uint8_t count) = 0;
     virtual bool getNumberOfReceivers(uint8_t& returnValue) const = 0;
+
+    //! Units setting
+    virtual void setUnits(const std::string& units) = 0;
+    virtual bool getUnits(std::string& returnString) const = 0;
    
     //! Calibration reads setting
     virtual void setCalibrationReads(uint8_t reads) = 0;
     virtual bool getCalibrationReads(uint8_t& returnValue) const = 0;
+
+    //! Calibration state setting
+    virtual void setCalState(uint8_t state) = 0;
+    virtual bool getCalState(uint8_t &state) const = 0;
 };
 
 #endif // SETTINGS_MODULE_INTERFACE

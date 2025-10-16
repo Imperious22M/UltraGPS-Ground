@@ -14,7 +14,8 @@ class SettingsModule : public SettingsModuleInterface {
 public:
     // Initialize with optional filename
     SettingsModule(std::string filename = "config.toml");
-    
+   
+    //! Save and load settings from file
     void saveSettings() override;
     void loadSettings() override;
     
@@ -23,8 +24,8 @@ public:
     const toml::table& getSettingsTable() const { return settings_table; }
     #endif
     
-    // Convenience methods for common settings
-    //! If the values are not set, return "NOT_SET" for string and a default value for integers
+    // General settings methods
+    //! If the values are not set, return "NOT_SET" for string and some default value for integers
     void setSerialPort(const std::string& port) override;
     bool getSerialPort(std::string& returnString) const override;
 
@@ -34,25 +35,47 @@ public:
     void setCalibrationReads(uint8_t reads) override;
     bool getCalibrationReads(uint8_t& returnValue) const override;
 
-    // Returns a vector of arrays, each containing two doubles for the calibration distances
-    // The index is the receiver ID
-    void setCalibrationDistances(const std::vector<std::array<double, 2>>& distances);
-    std::vector<std::array<double, 2>> getCalibrationDistances() const;
-    
-    void setReceiverOffset(size_t receiver_id, double slope, double intercept);
-    bool getReceiverOffset(size_t receiver_id, double& slope, double& intercept) const;
+    void setUnits(const std::string& units) override;
+    bool getUnits(std::string& returnString) const override;
+
+    void setCalState(uint8_t state) override; //! 0: uncalibrated, 1: calibrated
+    bool getCalState(uint8_t &state) const override;
+
+
+    // Per-Receiver setting methods
+
+    //! Takes an array which corresponds to the calibration distances for that receiver
+    //! Index 0: distance to calibration point 1
+    //! Index 1: distance to calibration point 2
+    void setReceiverCalibrationDistances(size_t receiver_id, const std::array<double, 2>& distances);
+    std::array<double, 2> getReceiverCalibrationDistances(size_t receiver_id);
+
+    //! Sets the position of each receiver in the x/y plane
+    //! Index 0: x position
+    //! Index 1: y position
+    void setReceiverPosition(size_t receiver_id, const std::array<double, 2>& position);
+    std::array<double, 2> getReceiverPosition(size_t receiver_id);
+
+    //! Takes slope and intercept for each receiver (usually set by calibration routine)
+    //! Index 0: slope
+    //! Index 1: intercept
+    void setReceiverOffset(size_t receiver_id, const std::array<double, 2>& offsets);
+    std::array<double, 2> getReceiverOffsets(size_t receiver_id);
     
     // Check if calibration data exists
+    //! NOT IMPLEMENTED YET
     bool hasCalibrationData() const;
     
 private:
     toml::table settings_table;
     std::string settingsFilename;
     
-    // Helper functions for saving/loading settings
+    // Helper functions
     void writeSettingsToFile(const std::string& filename);
     void readSettingsFromFile(const std::string& filename);
     void initializeDefaultSettings();
+    toml::table* getReceiverById(size_t receiver_id);
+
 };
 
 #endif

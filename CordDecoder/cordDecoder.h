@@ -55,11 +55,16 @@ class CordDecoder{
         //!     offsets[n][1] = B value for receiver n
         int calcAllReceiverOffsets(uint16_t numReads, const std::vector<std::array<double,2>>& knownDistances);
 
-        //! TOOD: Add a multi-receiver calibration function and make
-        //! single receiver calculaiton function use that
+        //! Sets the anchor entries for the receiver positions
+        //! Takes a vector of doubles representing the x and y positions
+        //! of each receiver in the system
+        int setAnchors(const std::vector<std::array<double, 2>>& anchors);
 
         //! set the offset of a certain receiver
         int setOffset(uint8_t receiver, double a, double b);
+
+        //! Get the offset of a certain receiver
+        int getOffset(uint8_t receiver, double &a, double &b);
 
         //! Returns the total number of receivers in the system
         uint8_t getReceiverCount();
@@ -128,15 +133,7 @@ class CordDecoder{
         //! Receiver tower position in the grid, in cm
         //! NEED TO BE CHANGED TO MATCH THE GRID!
         //! First entry is R0, then R1, then R2...
-        std::vector<CordDecoder::Point> anchors = {
-            {-307, -293.9},
-            {-307, 0},
-            {-307, 281.15},
-            {459, -284.05},
-            {459, 0},
-            {459, 292.46}
-        };
-
+        std::vector<CordDecoder::Point> anchors;
 
         //! Position variables
         CordDecoder::Point truePos {0, 0};

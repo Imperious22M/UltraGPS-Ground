@@ -10,6 +10,8 @@
 #include <spdlog/spdlog.h>
 #include <toml++/toml.h>
 #include <fstream>
+#include <chrono>
+#include <thread>
 
 #include "SettingsModule/settings.h"
 
@@ -23,41 +25,21 @@
 
 //! Serial port name of the receiving microcontroller
 #ifdef LINUX
-const char* port_name = "/dev/ttyACM0"; 
+//! PLACEHOLDER for linux select
 #else
-const char* port_name = "/dev/ttyS2"; 
+//! PLACEHOLDER for windows select
 #endif
-//! Total number of receivers in the system
-const uint8_t numberOfReceivers = 6;
 
-//! Array of the two KNOWN calibration distances for each receiver
-//! Index 0 for a particular receiver is the receivers distance to 
-//! calibration point 1, and index 1 is the distance to calibration 
-//! point 2
-//! Distances in cm
-const std::vector<std::array<double, 2>> calDistances = {
-    //! R1 (A0)
-    {425,528},
-    //! R2 (A1)
-    {307,307+297},
-    //! R3 (A2)
-    {419,530},
-    //! R4 (A3)
-    {412,327},
-    //! R5 (A4)
-    {459,162},
-    //! R6 (A5)
-    {410,337}
-};
-
-//! Calibration parameters
-static constexpr uint8_t calReads = 5;
-
-//! Global Settings
+//! Global vars
 SettingsModule settings;
+//! Array of known calibration distances for each receiver
+std::vector<std::array<double, 2>> calDistances;
+//! Calibration parameters
 std::string serialPort;
+std::string units;
 uint8_t numReceivers;
 uint8_t numCalReads;
+uint8_t calState;
 
 //! Serial interface object
 Serial rxDev; // Create the receiving device (Arduino)
@@ -68,59 +50,75 @@ CordDecoder decoder(rxDev);
 int init(){
     spdlog::set_level(spdlog::level::debug); 
     SPDLOG_INFO("Initializing UltraGPS Positioning System...");
+
     //! Instantiate serial device
     //! TODO Set a flag when SERIAL module is initiated
-    if( rxDev.begin(port_name, B19200) < 0 ){
-        SPDLOG_ERROR("Failed to open serial port {}", port_name);
+    settings.getSerialPort(serialPort);
+    if( rxDev.begin(serialPort.c_str(), B19200) < 0 ){
+        SPDLOG_ERROR("Failed to open serial port {}", serialPort);
         return -1;
     }
-    SPDLOG_INFO("Serial port {} opened at 19200 baud", port_name);
+    SPDLOG_INFO("Serial port {} opened at 19200 baud", serialPort);
 
-    // Load the calibration data
-    if (settings.getSerialPort(serialPort)) {
-        SPDLOG_INFO("Using serial port from settings: {}", serialPort);
+    // Get the units used
+    settings.getUnits(units);
+    if(units.compare("cm")==0){
+        SPDLOG_INFO("Units set to cm");
+    } else if(units.compare("in")==0){
+        SPDLOG_INFO("Units set to in");
     } else {
-        SPDLOG_WARN("Serial port not set");
+        SPDLOG_WARN("Units not set, defaulting to cm");
+        units = "cm";
     }
 
+    //! Initialize decoder based on number of receivers
     if (settings.getNumberOfReceivers(numReceivers)) {
-        decoder.begin(numReceivers, Unit::cm);
+        if(units.compare("cm")==0){
+            decoder.begin(numReceivers, Unit::cm);
+        } else {
+            decoder.begin(numReceivers, Unit::in);
+        }
         SPDLOG_INFO("Num Receivers: {}", numReceivers);
     } else {
         SPDLOG_WARN("Number of receivers not set");
     }
     
+    //! Get the number of calibration reads
     if (settings.getCalibrationReads(numCalReads)) {
         SPDLOG_INFO("Num Calibration Reads: {}", numCalReads);
     } else {
         SPDLOG_WARN("Calibration reads not set");
     }
     
-    std::vector<std::array<double, 2>> loadedDistances = settings.getCalibrationDistances();
-    if (loadedDistances.size() == numberOfReceivers) {
-        SPDLOG_INFO("Loaded calibration distances:");
-        for (size_t i = 0; i < loadedDistances.size(); ++i) {
-            SPDLOG_INFO("Receiver {}: {}, {}", i, loadedDistances[i][0], loadedDistances[i][1]);
+   //! Initialize calibration distances
+   for(uint8_t i = 0; i < numReceivers; ++i){
+        std::array<double, 2> distances = settings.getReceiverCalibrationDistances(i);
+        calDistances.push_back(distances);
+       SPDLOG_INFO("Receiver {}: Distances: {}, {}", i, distances[0], distances[1]);
+   }
+
+   //! Set the anchor points (location of towers)
+   std::vector<std::array<double, 2>> anchorPoints;
+   for(uint8_t i = 0; i < numReceivers; ++i){
+        std::array<double, 2> position = settings.getReceiverPosition(i);
+        anchorPoints.push_back(position);
+        SPDLOG_INFO("Receiver {}: Position: {}, {}", i, position[0], position[1]);
+   }
+   decoder.setAnchors(anchorPoints);
+
+   //! If the system has already been calibrated, initialize the offset array
+   settings.getCalState(calState);
+    if(calState == 1){
+        SPDLOG_INFO("System already calibrated, loading offsets...");
+        for(uint8_t i = 0; i < numReceivers; ++i){
+            std::array<double, 2> offsets = settings.getReceiverOffsets(i);
+            decoder.setOffset(i, offsets[0], offsets[1]);
+            SPDLOG_INFO("Receiver {}: Offsets: {}, {}", i, offsets[0], offsets[1]);
         }
     } else {
-        SPDLOG_WARN("Calibration distances not set or incomplete");
+        SPDLOG_WARN("System not calibrated, please run calibration routine");
     }
-
-    if (settings.hasCalibrationData()) {
-        SPDLOG_INFO("Loading calibration offsets...");
-        for (size_t i = 0; i < numberOfReceivers; ++i) {
-            double slope, intercept;
-            if (settings.getReceiverOffset(i, slope, intercept)) {
-                decoder.setOffset(i, slope, intercept);
-                SPDLOG_INFO("Receiver {} Offset: Slope={}, Intercept={}", i, slope, intercept);
-            } else {
-                SPDLOG_WARN("Offset for receiver {} not set", i);
-            }
-        }
-    } else {
-        SPDLOG_WARN("No calibration data found. Please run calibration.");
-    }
-
+    
     return 1;
 }
 
@@ -131,14 +129,30 @@ int main() {
         return -1;
     }else{
         SPDLOG_INFO("Initialization complete");
+        //! Wait for all terminal messages to print
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));  // 1000ms
     }
 
+    //! Run calibration routines for all receivers if system is not calibrated
+    if(calState == 0){
+        if(numCalReads == 0 || calDistances.size() != numReceivers){
+            SPDLOG_ERROR("Calibration parameters not set correctly, cannot run calibration");
+            return -1;
+        }
 
-    //exit(0);
-
-    //! Run calibration routines for all receivers
-    SPDLOG_INFO("Running calibration routine...");
-    //decoder.calcAllReceiverOffsets(calReads, calDistances);
+        SPDLOG_INFO("Running calibration routine...");
+        decoder.calcAllReceiverOffsets(numCalReads, calDistances);
+        SPDLOG_INFO("Calibration complete, saving offsets...");
+        //! Save calibration offsets to settings file
+        double a, b;
+        for(uint8_t i = 0; i < decoder.getReceiverCount(); ++i){
+            decoder.getOffset(i, a, b);
+            std::array<double, 2> offsets = {a, b};
+            settings.setReceiverOffset(i, offsets);
+            SPDLOG_INFO("Receiver {}: Offsets: {}, {}", i, offsets[0], offsets[1]);
+        }
+        settings.setCalState(1); // Set system as calibrated
+    }
 
     while(true){
         decoder.calcDistances();
