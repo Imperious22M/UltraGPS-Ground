@@ -1,6 +1,7 @@
 //! file: Contains the interface for the settings module
 
 #include <string>
+#include <stdint.h>
 
 #ifndef SETTINGS_MODULE_INTERFACE
 #define SETTINGS_MODULE_INTERFACE
