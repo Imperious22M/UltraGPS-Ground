@@ -59,7 +59,7 @@ int CordDecoder::serialRecvCounts(){
                 recvCounts[x] = 0;
             }catch(std::exception const &ex){
                 //! Catch all for any other error
-                std::cerr << "Errro in decoder receive module " << ex.what() << std::endl;
+                std::cerr << "Error in decoder receive module " << ex.what() << std::endl;
                 recvCounts[x] = 0;
             }
         }else{
@@ -68,6 +68,12 @@ int CordDecoder::serialRecvCounts(){
     }
 
     return bytesRecv;
+}
+
+void CordDecoder::getRecvCounts(std::string& data){
+    for(auto count : recvCounts){
+        data.append(std::to_string(count) + " ");
+    }
 }
 
 int CordDecoder::setOffset(uint8_t receiver, double a, double b){
@@ -112,11 +118,8 @@ int CordDecoder::setAnchors(const std::vector<std::array<double, 2>>& anchors){
     return 0;
 }
 
-void CordDecoder::printDistances(){
-    for(auto dist : recvDistances){
-        std::cout << dist << " ";
-    }
-    std::cout << std::endl;
+void CordDecoder::getDistances(std::vector<double> &distances){
+    distances = recvDistances;
 }
 
 int CordDecoder::getHistogramCounts(uint8_t numReads, std::vector<uint32_t>& validCounts){
@@ -160,21 +163,15 @@ int CordDecoder::getHistogramCounts(uint8_t numReads, std::vector<uint32_t>& val
         bytesRecv = serialRecvCounts();
         if(bytesRecv<0){
             //! Fail on serial error
-            std::cerr << "Failed to calibrate, serial error" << std::endl;
+            SPDLOG_ERROR("Failed to calibrate, serial error");
         } else if(bytesRecv == 0){
             //! Skip empty lines
-            std::cout << "empty " << std::endl;
+            SPDLOG_WARN("Received empty line");
             continue;
         }
-        std::cout << "received" << std::endl;
-        for(auto toa : recvCounts){
-            std::cout << " " << toa;
-        }
-        std::cout << std::endl;
 
         //! Make the histogram for each receiver
         for(int x=0;x < getReceiverCount();x++){    
-            //! TODO: Decide if, when implemented, getReceiverCount filtering is enought
             //! For now use every count that is received
             if(receiverHistograms[x].count(recvCounts[x])){
                 // If the key (count) exists increment it
@@ -219,110 +216,6 @@ int CordDecoder::getHistogramCounts(uint8_t numReads, std::vector<uint32_t>& val
         validCounts.push_back(tickCnt);
         index++;
     }
-
-    return 0;
-}
-
-int CordDecoder::calcSingleReceiverOffset(uint8_t receiver, uint16_t numReads, double knownDistance1, double knownDistance2){
-    std::cout << "Receiver: " << receiver << " number of reads: " << numReads << std::endl;
-    std::cout << "Known distance 1: " << knownDistance1 << " Known distance 2: " << knownDistance2 << std::endl;
-
-    int bytesRecv = 0;
-    //! Number of valid reads at a certain known distance
-    int validReads = 0; 
-    //! Average counts for distance 1
-    int avgCounts1 = 0;
-    //! Average counts for distance 2
-    int avgCounts2 = 0;
-    //! Dummy string for "storing" user input
-    std::string dummy;
-    //bool skipFirstLine = false;
-
-    if( !isReceiverOk(receiver) ){
-     //! Receiver index is out of bounds or unusable
-     return -1;
-    }
-    
-    if(numReads <= 0){
-        std::cerr << "There needs to be at least 1 reading for calibration" << std::endl;
-        return -1;
-    }
-    
-    //! Prompt to start the calibration process
-    std::cout << "Move the tower to known distance 1 and press enter" << std::endl;
-    std::getline(std::cin, dummy);  // Read the input into dummy
-
-    //! Clear the read buffer
-    serial.clearReadBuffer();
-    //! Skip the first line after buffer was cleared
-    serial.readLineSer(dummy);
-    do{
-        bytesRecv = serialRecvCounts();
-        if(bytesRecv<0){
-            //! Fail on serial error
-            std::cerr << "Failed to calibrate, serial error" << std::endl;
-        } else if(bytesRecv == 0){
-            //! Skip empty lines
-            std::cout << "empty" << std::endl;
-            continue;
-        }
-
-        //! Get the current count
-        int count = recvCounts[receiver];
-        std::cout << count << std::endl;
-        avgCounts1+=count;
-        validReads++;
-
-    }while( validReads < numReads );
-
-    //! Calculate the average of the reads
-    avgCounts1 = avgCounts1/numReads;
-    //! Reset the number of valid reads
-    validReads = 0;
-
-    //! Now we need to move the tower to another known distance
-    std::cout << "Move tower to distance 2, press enter when done" << std::endl;
-    std::getline(std::cin, dummy);  // Read the input into dummy
-
-    serial.clearReadBuffer();
-    serial.readLineSer(dummy);
-    do{
-        bytesRecv = serialRecvCounts();
-        if(bytesRecv<0){
-            //! Fail on serial error
-            std::cerr << "Failed to calibrate, serial error" << std::endl;
-        } else if(bytesRecv == 0){
-            //! Skip empty lines
-            std::cout << "empty" << std::endl;
-            continue;
-        }
-
-        //! Get the current count
-        int count = recvCounts[receiver];
-        std::cout << count << std::endl;
-        avgCounts2+=count;
-        validReads++;
-
-    }while( validReads < numReads );
-
-    //! Calculate the average of the reads
-    avgCounts2 = avgCounts2/numReads;
-
-    if(avgCounts1 == avgCounts2){
-        std::cerr << "Invalid read run, is the sensor functional?" << std::endl;
-        return -1;
-    }
-
-    //! Calculate the scaling offset (A) then calculate B
-    double a = (knownDistance1 - knownDistance2)/(avgCounts1-avgCounts2);
-    double b = (knownDistance1-(a*avgCounts1));
-
-    scaleFactors[receiver].a = a;
-    scaleFactors[receiver].b = b;
-
-    std::cout << "Scale factor A = " << a << std::endl;
-    std::cout << "Scale factor B = " << b << std::endl;
-    std::getline(std::cin, dummy);  // Read the input into dummy
 
     return 0;
 }
@@ -610,7 +503,7 @@ CordDecoder::Point CordDecoder::levenbergMarquardt(
 }
 
 
-void CordDecoder::getPosition(){
+void CordDecoder::getPosition(CordDecoder::Point &estimatedPosition){
     //! Test code
 
     // simulate noiseless ranges
@@ -620,7 +513,7 @@ void CordDecoder::getPosition(){
     //    ranges.push_back(std::sqrt(dx*dx + dy*dy));
     //}
 
-    //! If anchors is not setup (call to setAnchors)
+    //! If anchors are not setup (call to setAnchors)
     if(anchors.size() != getReceiverCount()){
         SPDLOG_ERROR("Anchors not set or number of anchors does not match number of receivers");
         return;
@@ -632,5 +525,7 @@ void CordDecoder::getPosition(){
     CordDecoder::Point est = levenbergMarquardt(anchors, recvDistances, guess);
 
     std::cout << "Estimated position: (" << est.x << ", " << est.y << ")\n";
+    estimatedPosition.x = est.x;
+    estimatedPosition.y = est.y;
 }
 

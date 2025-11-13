@@ -27,7 +27,7 @@ enum class Unit{
 class CordDecoder{
     public:
 
-        //! Struct to hold the various x,y cordinates for various things
+        //! Struct to hold the x,y cordinates for various things
         struct Point { double x, y; };
         
         //! Constructor to initialiaze class from a given number of receivers
@@ -38,14 +38,6 @@ class CordDecoder{
         //! Initialization method, MUST be called before any other methods
         //! Returns 1 on success, negative value on failure
         int begin(uint8_t numberOfReceivers, Unit unit);
-
-        //! Find the offsets of a certain receiver using a two known distance
-        //! and store them in the scaling factors array
-        //! Takes the receiver index and the number of reads to take
-        //! for calibration
-        //! TODO: ADD HISTOGRAM AVERAGE METHOD
-        int calcSingleReceiverOffset(uint8_t receiver, uint16_t numReads, 
-                            double knownDistance1, double knownDistance2);
 
         //! Calculate all receivers using the histogram method
         //! and store the offsets in the scaling factors array
@@ -72,12 +64,15 @@ class CordDecoder{
         //! Calculate the distances from all receivers
         int calcDistances();
 
-        //! Prints the last calculated distances to the terminal
-        void printDistances();
+        //! Prints the last calculated receiver distances to the terminal
+        void getDistances(std::vector<double> &distances);
 
         //! Get the current position
-        //! Make it pass a point struct 
-        void getPosition();
+        void getPosition(Point &estimatedPosition);
+
+        //! Function to get the most recent raw serial counts received
+        //! Input: A string containing to store the raw serial data
+        void getRecvCounts(std::string& data);
 
         //! Math functions for predicting the position
 
@@ -156,6 +151,8 @@ class CordDecoder{
         //! TODO: Add basic count validation to this function 
         //! (aka if number is too large throw it out and set that count to 0)
         int serialRecvCounts();
+
+
 
 
 };

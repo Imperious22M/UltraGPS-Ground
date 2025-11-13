@@ -12,8 +12,8 @@
 #include <fstream>
 #include <chrono>
 #include <thread>
-
 #include "SettingsModule/settings.h"
+#include "ServerModule/serverModule.h"
 
 //! Define flag for compiling in Windows using cygwin
 //! DEBUG flag is defined in CMakeLists.txt
@@ -124,6 +124,16 @@ int init(){
 
 int main() {
 
+
+    //! UDP SERVER TEST
+    UDPServer server;
+    // Set broadcast interval (optional, default is 1000ms)
+    server.setBroadcastInterval(200); // Broadcast every 500ms
+    //! Position broadcast
+    server.addPort(8001, "0,0\n");
+    server.start();
+
+    
     if(init() < 0){
         SPDLOG_ERROR("Failed to initialize positioning system...exiting");
         return -1;
@@ -155,9 +165,30 @@ int main() {
     }
 
     while(true){
+        //! Main positioning loop
+        std::string serialData;
+        CordDecoder::Point pos;
+        std::vector<double> distances;
+
         decoder.calcDistances();
-        decoder.printDistances();
-        decoder.getPosition();
+        decoder.getRecvCounts(serialData);
+        decoder.getDistances(distances);
+        std::cout << "Serial Data: " << serialData << std::endl;
+        std::cout << "Distances: ";
+        for(auto d : distances){
+            std::cout << d << " ";
+        }
+        std::cout << std::endl;
+        decoder.getPosition(pos);
+
+
+        //! Each server thread has a constant delay (through thread.sleep)
+        //! I think we should have this set the "refresh rate"
+
+        //! UDP SERVER PORTION EXPERIMENTAL
+        std::string gpsBrd = std::to_string(pos.x) + "," + std::to_string(pos.y) + "\n";
+        server.updateMessage(8001, gpsBrd);
+
     }
     
 }
