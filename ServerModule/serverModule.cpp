@@ -156,15 +156,12 @@ void UDPServer::broadcastLoop(int port) {
         
         if (sent < 0) {
             SPDLOG_ERROR("Failed to send on port {}: {}", port, strerror(errno));
-        } else {
-            //SPDLOG_DEBUG("Sent '{}' on port {}", message, port);
         }
 
         // Wait for next broadcast
         std::this_thread::sleep_for(std::chrono::milliseconds(broadcastInterval));
     }
     
-    //SPDLOG_DEBUG("Broadcast loop ended for port {}", port);
 }
 
 void UDPServer::closeSocket(PortInfo& portInfo) {

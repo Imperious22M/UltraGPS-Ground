@@ -5,13 +5,12 @@
 #include <vector>
 #include <array>
 #include <cmath>
-#include <limits>
 #include <iostream>
 #include <spdlog/spdlog.h>
 #include <toml++/toml.h>
-#include <fstream>
 #include <chrono>
 #include <thread>
+#include <sstream>
 #include "SettingsModule/settings.h"
 #include "ServerModule/serverModule.h"
 
@@ -47,7 +46,7 @@ Serial rxDev; // Create the receiving device (Arduino)
 CordDecoder decoder(rxDev);
 
 //! Initialization routine to setup various things
-int init(){
+int initSystem(){
     spdlog::set_level(spdlog::level::debug); 
     SPDLOG_INFO("Initializing UltraGPS Positioning System...");
 
@@ -125,16 +124,20 @@ int init(){
 int main() {
 
 
-    //! UDP SERVER TEST
+    //! UDP Server Broadcasts
     UDPServer server;
-    // Set broadcast interval (optional, default is 1000ms)
-    server.setBroadcastInterval(200); // Broadcast every 500ms
+    const uint broadcastInterval = 100;
+    server.setBroadcastInterval(broadcastInterval);
     //! Position broadcast
     server.addPort(8001, "0,0\n");
+    //! Distances broadcast
+    server.addPort(8002, "0,0,0,0,0,0");
+    //! Raw serial data broadcast
+    server.addPort(8003, "0,0,0,0,0,0");
     server.start();
 
     
-    if(init() < 0){
+    if(initSystem() < 0){
         SPDLOG_ERROR("Failed to initialize positioning system...exiting");
         return -1;
     }else{
@@ -167,6 +170,7 @@ int main() {
     while(true){
         //! Main positioning loop
         std::string serialData;
+        std::stringstream distanceStream;
         CordDecoder::Point pos;
         std::vector<double> distances;
 
@@ -175,20 +179,25 @@ int main() {
         decoder.getDistances(distances);
         std::cout << "Serial Data: " << serialData << std::endl;
         std::cout << "Distances: ";
-        for(auto d : distances){
-            std::cout << d << " ";
+        
+        for(size_t i = 0; i < distances.size(); ++i){
+            std::cout << distances[i] << " ";
+            distanceStream << distances[i] << " ";
         }
-        std::cout << std::endl;
+        distanceStream << "\n";
         decoder.getPosition(pos);
 
 
         //! Each server thread has a constant delay (through thread.sleep)
         //! I think we should have this set the "refresh rate"
 
-        //! UDP SERVER PORTION EXPERIMENTAL
-        std::string gpsBrd = std::to_string(pos.x) + "," + std::to_string(pos.y) + "\n";
-        server.updateMessage(8001, gpsBrd);
-
+        //! Update UDP server transmissions
+        std::string xyStr = std::to_string(pos.x) + "," + std::to_string(pos.y) + "\n";
+        server.updateMessage(8001, xyStr);
+        //! distance
+        server.updateMessage(8002, distanceStream.str());
+        //! serial
+        server.updateMessage(8003, serialData);
     }
     
 }

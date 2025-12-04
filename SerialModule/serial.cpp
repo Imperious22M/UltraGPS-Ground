@@ -47,8 +47,6 @@ int Serial::configurePort(){
     cfsetispeed(&tty, baudRate);
     cfsetospeed(&tty, baudRate);
 
-/*
-*/
     tty.c_cflag &= ~PARENB;          // No parity
     tty.c_cflag &= ~CSTOPB;          // 1 stop bit
     tty.c_cflag &= ~CSIZE;
