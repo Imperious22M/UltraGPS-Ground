@@ -175,6 +175,7 @@ int main() {
         std::vector<double> distances;
 
         decoder.calcDistances();
+
         decoder.getRecvCounts(serialData);
         decoder.getDistances(distances);
         std::cout << "Serial Data: " << serialData << std::endl;

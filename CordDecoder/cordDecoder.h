@@ -101,8 +101,6 @@ class CordDecoder{
             double eps1 = 1e-8,
             double eps2 = 1e-8);
 
-        //! TEMP AREA
-
         //! Gets X number of valid counts from all receivers and returns the 
         //! status of the counts received
         int getHistogramCounts(uint8_t numReads, std::vector<uint32_t>& validCounts);
