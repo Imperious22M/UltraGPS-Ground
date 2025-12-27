@@ -1,4 +1,5 @@
 #include "cordDecoder.h"
+#include "spdlog/spdlog.h"
 
 CordDecoder::CordDecoder(SerialInterface &serial):
                         serial(serial){
@@ -36,6 +37,8 @@ int CordDecoder::serialRecvCounts(){
     //! Get the tick values from the all the receivers
     //! The order that the count value is at corresponds to the receiver number
     //! Ex: XXXX(R0),XXXX(R1),... 
+    char buff[] = {'P'}; //! Arduino serial command to make a single pulse 
+    serial.writeSer(buff, 1);
     bytesRecv = serial.readLineSer(recvLine);
     if( bytesRecv < 0) {
         //!  If the we fail to read a line, print an error message
@@ -149,11 +152,11 @@ int CordDecoder::getHistogramCounts(uint8_t numReads, std::vector<uint32_t>& val
             receiverHistograms.emplace_back();
         }
     }
-
+    //SPDLOG_INFO("test");
     //! Clear the read buffer
     serial.clearReadBuffer(); 
     //! Skip the first line after buffer was cleared
-    serial.readLineSer(dummy);
+    //serial.readLineSer(dummy); // No longer needed
     
     //! Receive counts and store them in the histogram
     //! TODO: throw away counts that are too far the median

@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <iostream>
 #include <termios.h>
 #include "SerialModule/serial.h"
@@ -29,7 +30,6 @@
 //! PLACEHOLDER for windows select
 #endif
 
-//! Global vars
 SettingsModule settings;
 //! Array of known calibration distances for each receiver
 std::vector<std::array<double, 2>> calDistances;
@@ -126,14 +126,15 @@ int main() {
 
     //! UDP Server Broadcasts
     UDPServer server;
-    const uint broadcastInterval = 100;
+    const uint broadcastInterval = 1000; // millisecond delay broadcast interval
     server.setBroadcastInterval(broadcastInterval);
-    //! Position broadcast
-    server.addPort(8001, "0,0\n");
-    //! Distances broadcast
-    server.addPort(8002, "0,0,0,0,0,0");
-    //! Raw serial data broadcast
-    server.addPort(8003, "0,0,0,0,0,0");
+    constexpr unsigned int commandPort = 8000;
+    constexpr unsigned int distanceBroadcastPort = 8002;
+    constexpr unsigned int serialBroadcastPort = 8003;
+
+    server.addReceiveOnlyPort(commandPort);
+    server.addBroadcastPort(distanceBroadcastPort,"",0); 
+    server.addBroadcastPort(serialBroadcastPort,"",0); 
     server.start();
 
     
@@ -174,31 +175,35 @@ int main() {
         CordDecoder::Point pos;
         std::vector<double> distances;
 
-        decoder.calcDistances();
+        //! Check for incoming UDP messages
+        UDPMessage incomingMsg;
+        std::string pulseCmd = "P\n";
+        while(server.getIncomingMessage(incomingMsg)) {
+            SPDLOG_INFO("Received UDP message on port {} from {}: {}", 
+                       incomingMsg.port, incomingMsg.sender_ip, incomingMsg.message);
 
-        decoder.getRecvCounts(serialData);
-        decoder.getDistances(distances);
-        std::cout << "Serial Data: " << serialData << std::endl;
-        std::cout << "Distances: ";
+            //! Process incoming messages
+            if(incomingMsg.message.compare(pulseCmd) == 0){
+               //! Send the calculated distances to distance channel
+               decoder.calcDistances();
+               decoder.getRecvCounts(serialData);
+               decoder.getDistances(distances);
+               std::cout << "Serial Data: " << serialData << std::endl;
+               std::cout << "Distances: ";
         
-        for(size_t i = 0; i < distances.size(); ++i){
-            std::cout << distances[i] << " ";
-            distanceStream << distances[i] << " ";
+               for(size_t i = 0; i < distances.size(); ++i){
+                   std::cout << distances[i] << " ";
+                   distanceStream << distances[i] << " ";
+               }
+               distanceStream << "\n";
+               std::cout << std::endl;
+               
+               //! Broadcast the distances and serial data
+               server.sendMessage(distanceBroadcastPort, distanceStream.str());
+               server.sendMessage(serialBroadcastPort, serialData);
+            }
         }
-        distanceStream << "\n";
-        decoder.getPosition(pos);
 
 
-        //! Each server thread has a constant delay (through thread.sleep)
-        //! I think we should have this set the "refresh rate"
-
-        //! Update UDP server transmissions
-        std::string xyStr = std::to_string(pos.x) + "," + std::to_string(pos.y) + "\n";
-        server.updateMessage(8001, xyStr);
-        //! distance
-        server.updateMessage(8002, distanceStream.str());
-        //! serial
-        server.updateMessage(8003, serialData);
     }
-    
 }

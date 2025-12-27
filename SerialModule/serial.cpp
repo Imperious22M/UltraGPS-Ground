@@ -97,7 +97,7 @@ int Serial::readLineSer(std::string& line) const{
     while(true){
         n = readSer(static_cast<void*>(buffer), buffSize);
         if(n<0){
-            // readSer already closes the port for us if a read fails
+            // readSer() already closes the port for us if a read fails
             std::cerr << "Read line error: " << strerror(errno) << std::endl;
             return -1;
         }else if(n==0){
@@ -118,6 +118,18 @@ int Serial::readLineSer(std::string& line) const{
     }
 
     // A line was succesfully read
+    // if the return was non-zero
+    return n;
+}
+
+int Serial::writeSer(const void* buffer, size_t nBytes) const{
+    //! Attempt to write bytes to the serial port
+    int n = write(portFd, buffer, nBytes);
+    if (n < 0) {
+        SPDLOG_ERROR("Write error: {}", strerror(errno));
+        return -1;
+    }
+
     return n;
 }
 
