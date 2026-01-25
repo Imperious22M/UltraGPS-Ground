@@ -272,6 +272,7 @@ void UDPServer::broadcastLoop(int port) {
                 messageSent = true;
             } else {
                 // Wrong port, put it back at the end of the queue
+                std::lock_guard<std::mutex> queueLock(outgoingQueueMutex);
                 outgoingQueue.push(msg);
             }
         } else {
