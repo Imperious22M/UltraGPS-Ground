@@ -13,6 +13,7 @@
 #include <limits>
 #include <unordered_map>
 #include <algorithm>
+#include <chrono>
 #include <spdlog/spdlog.h>
 
 #ifndef CORDDECODERMODULE

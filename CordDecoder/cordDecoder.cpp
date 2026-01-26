@@ -36,10 +36,15 @@ int CordDecoder::serialRecvCounts(){
 
     //! Get the tick values from the all the receivers
     //! The order that the count value is at corresponds to the receiver number
-    //! Ex: XXXX(R0),XXXX(R1),... 
-    char buff[] = {'P'}; //! Arduino serial command to make a single pulse 
+    //! Ex: XXXX(R0),XXXX(R1),...
+    char buff[] = {'P'}; //! Arduino serial command to make a single pulse
+    SPDLOG_DEBUG("Serial sent P");
+
+    auto t1 = std::chrono::high_resolution_clock::now();
     serial.writeSer(buff, 1);
+    auto t2 = std::chrono::high_resolution_clock::now();
     bytesRecv = serial.readLineSer(recvLine);
+    auto t3 = std::chrono::high_resolution_clock::now();
     if( bytesRecv < 0) {
         //!  If the we fail to read a line, print an error message
         std::cerr << "Read line function failed in Cord Detect" << std::endl;
@@ -69,6 +74,14 @@ int CordDecoder::serialRecvCounts(){
             recvCounts[x] = 0;
         }
     }
+
+    auto t4 = std::chrono::high_resolution_clock::now();
+    auto writeTime = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
+    auto readTime = std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count();
+    auto parseTime = std::chrono::duration_cast<std::chrono::microseconds>(t4 - t3).count();
+    auto totalTime = std::chrono::duration_cast<std::chrono::microseconds>(t4 - t1).count();
+    SPDLOG_INFO("serialRecvCounts: write={} us, read={} us ({:.2f} ms), parse={} us, total={} us ({:.2f} ms)",
+                writeTime, readTime, readTime / 1000.0, parseTime, totalTime, totalTime / 1000.0);
 
     return bytesRecv;
 }

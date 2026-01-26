@@ -53,11 +53,11 @@ int initSystem(){
     //! Instantiate serial device
     //! TODO Set a flag when SERIAL module is initiated
     settings.getSerialPort(serialPort);
-    if( rxDev.begin(serialPort.c_str(), B19200) < 0 ){
+    if( rxDev.begin(serialPort.c_str(), B38400) < 0 ){
         SPDLOG_ERROR("Failed to open serial port {}", serialPort);
         return -1;
     }
-    SPDLOG_INFO("Serial port {} opened at 19200 baud", serialPort);
+    SPDLOG_INFO("Serial port {} opened at 38400 baud", serialPort);
 
     // Get the units used
     settings.getUnits(units);

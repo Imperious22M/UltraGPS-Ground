@@ -66,7 +66,7 @@ int Serial::configurePort(){
     tty.c_oflag &= ~OPOST;           // Raw output
     tty.c_oflag &= ~ONLCR;           // Disable newline -> CRLF translation
 
-    tty.c_cc[VTIME] = 10;            // Wait up to 1.0 seconds (VTIME * 0.1 s)
+    tty.c_cc[VTIME] = 1;             // Wait up to 0.1 seconds (VTIME * 0.1 s)
     tty.c_cc[VMIN] = 0;              // Return as soon as any data is available
 
     if (tcsetattr(portFd, TCSANOW, &tty) != 0) {
@@ -90,36 +90,45 @@ int Serial::readSer(void* buffer, size_t nBytes) const{
 }
 
 int Serial::readLineSer(std::string& line) const{
-    //! A timeout will need to be implemented, but for now this is okay
-    const uint8_t buffSize = 1; // Read character by character
-    char buffer[buffSize]; // char buffer
-    int n = 0; //! number of characters read
-    while(true){
-        n = readSer(static_cast<void*>(buffer), buffSize);
-        if(n<0){
+    const size_t buffSize = 64; // Read in larger chunks for efficiency
+    char buffer[buffSize];
+    int totalBytesRead = 0;
+    int timeoutCount = 0;
+    const int maxTimeouts = 10; // Max consecutive empty reads before giving up (10 * VTIME = 1s max)
+
+    while(timeoutCount < maxTimeouts){
+        int n = readSer(static_cast<void*>(buffer), buffSize);
+        if(n < 0){
             // readSer() already closes the port for us if a read fails
             std::cerr << "Read line error: " << strerror(errno) << std::endl;
             return -1;
-        }else if(n==0){
-            // Skip empty lines
+        } else if(n == 0){
+            // No data available, increment timeout counter
+            timeoutCount++;
             continue;
         }
 
-        char c = buffer[0];
-        //! Only account for newlines
-        if (c == '\n') {
-            if (!line.empty()) {
-                break;  // End of line received
+        // Reset timeout counter when we receive data
+        timeoutCount = 0;
+        totalBytesRead += n;
+
+        // Process all received bytes
+        for(int i = 0; i < n; i++){
+            char c = buffer[i];
+            if (c == '\n') {
+                if (!line.empty()) {
+                    // End of line received
+                    return totalBytesRead;
+                }
+                // Ignore empty lines (leading newlines)
+            } else {
+                line += c;
             }
-            // Ignore empty lines
-        } else {
-            line += c;
         }
     }
 
-    // A line was succesfully read
-    // if the return was non-zero
-    return n;
+    // Timeout reached - return what we have (or 0 if empty)
+    return line.empty() ? 0 : totalBytesRead;
 }
 
 int Serial::writeSer(const void* buffer, size_t nBytes) const{

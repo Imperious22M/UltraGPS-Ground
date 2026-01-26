@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <queue>
 #include <mutex>
+#include <condition_variable>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -92,6 +93,7 @@ private:
     
     mutable std::mutex outgoingQueueMutex;
     std::queue<UDPMessage> outgoingQueue;
+    std::condition_variable outgoingQueueCV;  // Notifies broadcast threads when messages are queued
     
     // Create socket for a specific port
     bool createSocket(int port, PortInfo& portInfo);

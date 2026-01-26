@@ -219,87 +219,91 @@ void UDPServer::broadcastLoop(int port) {
     if (it == ports.end()) {
         return;
     }
-    
+
     PortInfo& portInfo = it->second;
-    
+
     if (portInfo.type != PortType::BROADCAST) {
         SPDLOG_ERROR("broadcastLoop called on non-broadcast port {}", port);
         return;
     }
-    
+
     if (portInfo.delayMs > 0) {
         SPDLOG_DEBUG("Starting periodic broadcast loop for port {} (delay: {}ms)", port, portInfo.delayMs);
     } else {
         SPDLOG_DEBUG("Starting on-demand broadcast loop for port {}", port);
     }
-    
+
     while (running) {
-        bool messageSent = false;
-        
-        // Check outgoing queue for messages to send (on-demand)
+        // Wait for a message to be queued or timeout
         std::unique_lock<std::mutex> lock(outgoingQueueMutex);
-        if (!outgoingQueue.empty()) {
+
+        // For on-demand ports, wait indefinitely for messages; for periodic, wait up to delayMs
+        auto waitTime = (portInfo.delayMs > 0)
+            ? std::chrono::milliseconds(portInfo.delayMs)
+            : std::chrono::milliseconds(100);  // Max wait 100ms, but woken immediately on message
+
+        outgoingQueueCV.wait_for(lock, waitTime, [this]{ return !outgoingQueue.empty() || !running; });
+
+        if (!running) {
+            break;
+        }
+
+        // Process all queued messages for this port
+        while (!outgoingQueue.empty()) {
             UDPMessage msg = outgoingQueue.front();
             outgoingQueue.pop();
             lock.unlock();
-            
+
             // Send message from queue if it's for this port
             if (msg.port == port) {
                 struct sockaddr_in targetAddr;
                 memset(&targetAddr, 0, sizeof(targetAddr));
                 targetAddr.sin_family = AF_INET;
                 targetAddr.sin_port = htons(port);
-                
+
                 // If sender_ip is provided, send to that IP, otherwise broadcast
                 if (!msg.sender_ip.empty()) {
                     targetAddr.sin_addr.s_addr = inet_addr(msg.sender_ip.c_str());
                 } else {
                     targetAddr.sin_addr.s_addr = inet_addr("255.255.255.255");
                 }
-                
+
                 ssize_t sent = sendto(portInfo.socket_fd,
                                      msg.message.c_str(),
                                      msg.message.length(),
                                      0,
                                      (struct sockaddr*)&targetAddr,
                                      sizeof(targetAddr));
-                
+
                 if (sent < 0) {
                     SPDLOG_ERROR("Failed to send queued message on port {}: {}", port, strerror(errno));
                 } else {
                     SPDLOG_DEBUG("Sent queued message on port {}: {}", port, msg.message);
                 }
-                messageSent = true;
             } else {
                 // Wrong port, put it back at the end of the queue
                 std::lock_guard<std::mutex> queueLock(outgoingQueueMutex);
                 outgoingQueue.push(msg);
             }
-        } else {
-            lock.unlock();
+
+            lock.lock();
         }
-        
+        lock.unlock();
+
         // If delay > 0, do periodic broadcasts
         if (portInfo.delayMs > 0) {
             // Send the periodic broadcast message
             const std::string& message = portInfo.message;
-            ssize_t sent = sendto(portInfo.socket_fd, 
-                                 message.c_str(), 
-                                 message.length(), 
+            ssize_t sent = sendto(portInfo.socket_fd,
+                                 message.c_str(),
+                                 message.length(),
                                  0,
-                                 (struct sockaddr*)&portInfo.addr, 
+                                 (struct sockaddr*)&portInfo.addr,
                                  sizeof(portInfo.addr));
             if (sent < 0) {
                 SPDLOG_ERROR("Failed to send broadcast on port {}: {}", port, strerror(errno));
             }
-            
-            // Wait for next broadcast
-            std::this_thread::sleep_for(std::chrono::milliseconds(portInfo.delayMs));
-        } else {
-            //! Delay 1ms to prevent busy waiting
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
-
     }
 }
 
@@ -368,14 +372,17 @@ bool UDPServer::sendMessage(int port, const std::string& message) {
         SPDLOG_WARN("Attempted to send message to unknown port {}", port);
         return false;
     }
-    
+
     if (it->second.type != PortType::BROADCAST) {
         SPDLOG_WARN("sendMessage() can only be used on BROADCAST ports, port {} is RECEIVE_ONLY", port);
         return false;
     }
-    
-    std::lock_guard<std::mutex> lock(outgoingQueueMutex);
-    outgoingQueue.push(UDPMessage(port, message));
+
+    {
+        std::lock_guard<std::mutex> lock(outgoingQueueMutex);
+        outgoingQueue.push(UDPMessage(port, message));
+    }
+    outgoingQueueCV.notify_all();  // Wake broadcast threads immediately
     return true;
 }
 
