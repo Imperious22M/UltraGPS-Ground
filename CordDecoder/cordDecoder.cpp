@@ -204,6 +204,8 @@ int CordDecoder::getHistogramCounts(uint8_t numReads, std::vector<uint32_t>& val
 
             //! Check if we have received the minimum valid reads for all
             //! receivers, if so exit the loop
+            //! BUG WILL OCCURR HERE (if at least 1 maxValidReads>=numReads it will exit)
+            //! Instead this should check that all maxValidReads are at the appropriate value
             if( maxValidReads[x] >= numReads ){
                 doneFlag = true;
             }else{
@@ -276,8 +278,6 @@ int CordDecoder::calcAllReceiverOffsets(uint16_t numReads, const std::vector<std
     for(int x=0;x<getReceiverCount();x++){
         double a = (knownDistances[x][0] - knownDistances[x][1]) / (static_cast<double>(validCounts1[x]) - validCounts2[x]);
         SPDLOG_INFO("Known Dist diff: {} validCnt diff = {} res A = {}", (knownDistances[x][0] - knownDistances[x][1]), (validCounts1[x]-validCounts2[x]), a);
-        
-        //double a = (static_cast<double>(validCounts1[x]-validCounts2[x])) / (knownDistances[x][0] - knownDistances[x][1]);
         
         double b = (knownDistances[x][0] - (a*validCounts1[x]));
         scaleFactors[x].a = a;
