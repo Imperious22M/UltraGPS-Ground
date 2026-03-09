@@ -37,11 +37,11 @@ int CordDecoder::serialRecvCounts(){
     //! Get the tick values from the all the receivers
     //! The order that the count value is at corresponds to the receiver number
     //! Ex: XXXX(R0),XXXX(R1),...
-    char buff[] = {'P'}; //! Arduino serial command to make a single pulse
+    char buff[] = {'P', '\n'}; //! Arduino serial command to make a single pulse
     SPDLOG_DEBUG("Serial sent P");
 
     auto t1 = std::chrono::high_resolution_clock::now();
-    serial.writeSer(buff, 1);
+    serial.writeSer(buff, 2);
     auto t2 = std::chrono::high_resolution_clock::now();
     bytesRecv = serial.readLineSer(recvLine);
     auto t3 = std::chrono::high_resolution_clock::now();

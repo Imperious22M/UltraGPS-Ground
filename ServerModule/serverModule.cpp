@@ -5,73 +5,64 @@
 #include <unistd.h>
 #include <cstring>
 #include <cerrno>
-#include <fcntl.h>
-#include <ifaddrs.h>
-#include <netdb.h>
 
-UDPServer::UDPServer() : running(false), broadcastInterval(1000) {
-    // Constructor
-}
+UDPServer::UDPServer() : running(false), clientPort(0), clientConnected(false), clientTimeoutMs(5000) {}
 
 UDPServer::~UDPServer() {
     stop();
 }
 
-bool UDPServer::addBroadcastPort(int port, const std::string& message, int delayMs) {
+bool UDPServer::addSendPort(int port, int destinationPort) {
     if (ports.find(port) != ports.end()) {
         SPDLOG_WARN("Port {} already exists", port);
         return false;
     }
-    
+
     PortInfo portInfo;
-    portInfo.type = PortType::BROADCAST;
-    portInfo.message = message;
-    portInfo.delayMs = delayMs;
-    
+    portInfo.type = PortType::SEND;
+    portInfo.destinationPort = destinationPort;
+
     if (!createSocket(port, portInfo)) {
         SPDLOG_ERROR("Failed to create socket for port {}", port);
         return false;
     }
-    
+
     ports[port] = std::move(portInfo);
-    if (delayMs > 0) {
-        SPDLOG_INFO("Added UDP broadcast port {} with periodic broadcast (delay: {}ms), message: '{}'", port, delayMs, message);
+    if (destinationPort != 0) {
+        SPDLOG_INFO("Added UDP send port {} -> client port {}", port, destinationPort);
     } else {
-        SPDLOG_INFO("Added UDP broadcast port {} with on-demand broadcast, message: '{}'", port, message);
+        SPDLOG_INFO("Added UDP send port {} (dynamic destination)", port);
     }
-    
-    // If server is already running, start broadcasting on this port
+
     if (running) {
-        ports[port].mainThread = std::thread(&UDPServer::broadcastLoop, this, port);
+        ports[port].mainThread = std::thread(&UDPServer::sendLoop, this, port);
     }
-    
+
     return true;
 }
 
-bool UDPServer::addReceiveOnlyPort(int port) {
+bool UDPServer::addListenPort(int port) {
     if (ports.find(port) != ports.end()) {
         SPDLOG_WARN("Port {} already exists", port);
         return false;
     }
-    
+
     PortInfo portInfo;
-    portInfo.type = PortType::RECEIVE_ONLY;
-    portInfo.message = "";  // Not used for receive-only ports
-    portInfo.delayMs = 0;   // Not used for receive-only ports
-    
+    portInfo.type = PortType::LISTEN;
+    portInfo.destinationPort = 0;
+
     if (!createSocket(port, portInfo)) {
         SPDLOG_ERROR("Failed to create socket for port {}", port);
         return false;
     }
-    
+
     ports[port] = std::move(portInfo);
-    SPDLOG_INFO("Added UDP receive-only port {}", port);
-    
-    // If server is already running, start receive loop on this port
+    SPDLOG_INFO("Added UDP listen port {}", port);
+
     if (running) {
         ports[port].mainThread = std::thread(&UDPServer::receiveLoop, this, port);
     }
-    
+
     return true;
 }
 
@@ -81,33 +72,15 @@ bool UDPServer::removePort(int port) {
         SPDLOG_WARN("Port {} not found", port);
         return false;
     }
-    
-    // Stop the main thread for this port
+
     if (it->second.mainThread.joinable()) {
         it->second.mainThread.join();
     }
-    
+
     closeSocket(it->second);
     ports.erase(it);
-    
-    SPDLOG_INFO("Removed UDP broadcast on port {}", port);
-    return true;
-}
 
-bool UDPServer::updateMessage(int port, const std::string& message) {
-    auto it = ports.find(port);
-    if (it == ports.end()) {
-        SPDLOG_WARN("Port {} not found", port);
-        return false;
-    }
-    
-    if (it->second.type != PortType::BROADCAST) {
-        SPDLOG_WARN("updateMessage() can only be used on BROADCAST ports, port {} is RECEIVE_ONLY", port);
-        return false;
-    }
-    
-    it->second.message = message;
-    SPDLOG_DEBUG("Updated message for broadcast port {} to: '{}'", port, message);
+    SPDLOG_INFO("Removed port {}", port);
     return true;
 }
 
@@ -116,23 +89,22 @@ bool UDPServer::start() {
         SPDLOG_WARN("Server is already running");
         return false;
     }
-    
+
     if (ports.empty()) {
         SPDLOG_WARN("No ports configured");
         return false;
     }
-    
+
     running = true;
-    
-    // Start appropriate threads for each port based on type
+
     for (auto& [port, portInfo] : ports) {
-        if (portInfo.type == PortType::BROADCAST) {
-            portInfo.mainThread = std::thread(&UDPServer::broadcastLoop, this, port);
-        } else if (portInfo.type == PortType::RECEIVE_ONLY) {
+        if (portInfo.type == PortType::SEND) {
+            portInfo.mainThread = std::thread(&UDPServer::sendLoop, this, port);
+        } else if (portInfo.type == PortType::LISTEN) {
             portInfo.mainThread = std::thread(&UDPServer::receiveLoop, this, port);
         }
     }
-    
+
     SPDLOG_INFO("UDP server started with {} ports", ports.size());
     return true;
 }
@@ -141,144 +113,117 @@ void UDPServer::stop() {
     if (!running) {
         return;
     }
-    
+
     running = false;
-    
-    // Wait for all threads to finish and cleanup
+    outgoingQueueCV.notify_all();
+
     for (auto& [port, portInfo] : ports) {
         if (portInfo.mainThread.joinable()) {
             portInfo.mainThread.join();
         }
         closeSocket(portInfo);
     }
-    
+
     SPDLOG_INFO("UDP server stopped");
 }
 
 bool UDPServer::createSocket(int port, PortInfo& portInfo) {
-    // Create UDP socket
     portInfo.socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (portInfo.socket_fd < 0) {
         SPDLOG_ERROR("Failed to create socket for port {}: {}", port, strerror(errno));
         return false;
     }
-    
-    // Enable broadcast
-    int broadcast = 1;
-    if (setsockopt(portInfo.socket_fd, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast)) < 0) {
-        SPDLOG_ERROR("Failed to enable broadcast for port {}: {}", port, strerror(errno));
-        close(portInfo.socket_fd);
-        return false;
-    }
-    
-    // Enable socket reuse to allow binding to same port
+
     int reuse = 1;
     if (setsockopt(portInfo.socket_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
-        SPDLOG_ERROR("Failed to enable socket reuse (SO_REUSEADDR) for port {}: {}", port, strerror(errno));
+        SPDLOG_ERROR("Failed to enable SO_REUSEADDR for port {}: {}", port, strerror(errno));
         close(portInfo.socket_fd);
         return false;
     }
-    
-    // Enable SO_REUSEPORT to allow multiple programs to bind to the same port
-    // This allows other programs on localhost to also receive from this port
+
     #ifdef SO_REUSEPORT
     if (setsockopt(portInfo.socket_fd, SOL_SOCKET, SO_REUSEPORT, &reuse, sizeof(reuse)) < 0) {
-        SPDLOG_WARN("Failed to enable SO_REUSEPORT for port {} (may not be supported on this system): {}", port, strerror(errno));
-        // Don't fail if SO_REUSEPORT is not supported, SO_REUSEADDR should still work
-    } else {
-        SPDLOG_DEBUG("SO_REUSEPORT enabled for port {}, allowing port sharing with other programs", port);
+        SPDLOG_WARN("Failed to enable SO_REUSEPORT for port {}: {}", port, strerror(errno));
     }
-    #else
-    SPDLOG_DEBUG("SO_REUSEPORT not available on this system, using SO_REUSEADDR only");
     #endif
-    
-    // Set up local address structure for binding (to receive messages)
+
     memset(&portInfo.localAddr, 0, sizeof(portInfo.localAddr));
     portInfo.localAddr.sin_family = AF_INET;
     portInfo.localAddr.sin_port = htons(port);
-    portInfo.localAddr.sin_addr.s_addr = INADDR_ANY;  // Listen on all interfaces
-    
-    // Bind socket to local address
+    portInfo.localAddr.sin_addr.s_addr = INADDR_ANY;
+
     if (bind(portInfo.socket_fd, (struct sockaddr*)&portInfo.localAddr, sizeof(portInfo.localAddr)) < 0) {
         SPDLOG_ERROR("Failed to bind socket for port {}: {}", port, strerror(errno));
         close(portInfo.socket_fd);
         return false;
     }
-    
-    // Set up address structure for network broadcast (for sending)
-    memset(&portInfo.addr, 0, sizeof(portInfo.addr));
-    portInfo.addr.sin_family = AF_INET;
-    portInfo.addr.sin_port = htons(port);
-    portInfo.addr.sin_addr.s_addr = inet_addr("255.255.255.255");  // Broadcast address
-    
+
     return true;
 }
 
-void UDPServer::broadcastLoop(int port) {
+void UDPServer::sendLoop(int port) {
     auto it = ports.find(port);
-    if (it == ports.end()) {
-        return;
-    }
+    if (it == ports.end()) return;
 
     PortInfo& portInfo = it->second;
 
-    if (portInfo.type != PortType::BROADCAST) {
-        SPDLOG_ERROR("broadcastLoop called on non-broadcast port {}", port);
+    if (portInfo.type != PortType::SEND) {
+        SPDLOG_ERROR("sendLoop called on non-send port {}", port);
         return;
     }
 
-    if (portInfo.delayMs > 0) {
-        SPDLOG_DEBUG("Starting periodic broadcast loop for port {} (delay: {}ms)", port, portInfo.delayMs);
-    } else {
-        SPDLOG_DEBUG("Starting on-demand broadcast loop for port {}", port);
-    }
+    SPDLOG_DEBUG("Starting send loop for port {}", port);
 
     while (running) {
-        // Wait for a message to be queued or timeout
         std::unique_lock<std::mutex> lock(outgoingQueueMutex);
+        outgoingQueueCV.wait_for(lock, std::chrono::milliseconds(100),
+            [this]{ return !outgoingQueue.empty() || !running; });
 
-        // For on-demand ports, wait indefinitely for messages; for periodic, wait up to delayMs
-        auto waitTime = (portInfo.delayMs > 0)
-            ? std::chrono::milliseconds(portInfo.delayMs)
-            : std::chrono::milliseconds(100);  // Max wait 100ms, but woken immediately on message
+        if (!running) break;
 
-        outgoingQueueCV.wait_for(lock, waitTime, [this]{ return !outgoingQueue.empty() || !running; });
-
-        if (!running) {
-            break;
-        }
-
-        // Process all queued messages for this port
         while (!outgoingQueue.empty()) {
             UDPMessage msg = outgoingQueue.front();
             outgoingQueue.pop();
             lock.unlock();
 
-            // Send message from queue if it's for this port
             if (msg.port == port) {
-                struct sockaddr_in targetAddr;
-                memset(&targetAddr, 0, sizeof(targetAddr));
-                targetAddr.sin_family = AF_INET;
-                targetAddr.sin_port = htons(port);
-
-                // If sender_ip is provided, send to that IP, otherwise broadcast
-                if (!msg.sender_ip.empty()) {
-                    targetAddr.sin_addr.s_addr = inet_addr(msg.sender_ip.c_str());
-                } else {
-                    targetAddr.sin_addr.s_addr = inet_addr("255.255.255.255");
+                // Copy client state under lock, then release before sendto
+                bool connected;
+                std::string targetIP;
+                int targetPort;
+                {
+                    std::lock_guard<std::mutex> clientLock(clientMutex);
+                    connected = clientConnected.load();
+                    targetIP = clientIP;
+                    targetPort = clientPort;
                 }
 
-                ssize_t sent = sendto(portInfo.socket_fd,
-                                     msg.message.c_str(),
-                                     msg.message.length(),
-                                     0,
-                                     (struct sockaddr*)&targetAddr,
-                                     sizeof(targetAddr));
+                // Use fixed destination port if configured, otherwise use dynamic clientPort
+                if (portInfo.destinationPort != 0) {
+                    targetPort = portInfo.destinationPort;
+                }
 
-                if (sent < 0) {
-                    SPDLOG_ERROR("Failed to send queued message on port {}: {}", port, strerror(errno));
+                if (connected) {
+                    struct sockaddr_in targetAddr;
+                    memset(&targetAddr, 0, sizeof(targetAddr));
+                    targetAddr.sin_family = AF_INET;
+                    targetAddr.sin_port = htons(targetPort);
+                    targetAddr.sin_addr.s_addr = inet_addr(targetIP.c_str());
+
+                    ssize_t sent = sendto(portInfo.socket_fd,
+                                         msg.message.c_str(),
+                                         msg.message.length(),
+                                         0,
+                                         (struct sockaddr*)&targetAddr,
+                                         sizeof(targetAddr));
+
+                    if (sent < 0) {
+                        SPDLOG_ERROR("Failed to send message on port {} to {}: {}", port, targetIP, strerror(errno));
+                    } else {
+                        SPDLOG_DEBUG("Sent message on port {} to {}: {}", port, targetIP, msg.message);
+                    }
                 } else {
-                    SPDLOG_DEBUG("Sent queued message on port {}: {}", port, msg.message);
+                    SPDLOG_DEBUG("No client connected, discarding message on port {}", port);
                 }
             } else {
                 // Wrong port, put it back at the end of the queue
@@ -289,72 +234,91 @@ void UDPServer::broadcastLoop(int port) {
             lock.lock();
         }
         lock.unlock();
-
-        // If delay > 0, do periodic broadcasts
-        if (portInfo.delayMs > 0) {
-            // Send the periodic broadcast message
-            const std::string& message = portInfo.message;
-            ssize_t sent = sendto(portInfo.socket_fd,
-                                 message.c_str(),
-                                 message.length(),
-                                 0,
-                                 (struct sockaddr*)&portInfo.addr,
-                                 sizeof(portInfo.addr));
-            if (sent < 0) {
-                SPDLOG_ERROR("Failed to send broadcast on port {}: {}", port, strerror(errno));
-            }
-        }
     }
 }
 
 void UDPServer::receiveLoop(int port) {
     auto it = ports.find(port);
-    if (it == ports.end()) {
-        return;
-    }
-    
+    if (it == ports.end()) return;
+
     PortInfo& portInfo = it->second;
-    
-    if (portInfo.type != PortType::RECEIVE_ONLY) {
-        SPDLOG_ERROR("receiveLoop called on non-receive-only port {}", port);
+
+    if (portInfo.type != PortType::LISTEN) {
+        SPDLOG_ERROR("receiveLoop called on non-listen port {}", port);
         return;
     }
-    
+
     char buffer[4096];
-    SPDLOG_DEBUG("Starting receive loop for receive-only port {}", port);
-    
+    SPDLOG_DEBUG("Starting receive loop for port {}", port);
+
     while (running) {
+        // Check for client timeout
+        {
+            std::lock_guard<std::mutex> lock(clientMutex);
+            if (clientConnected) {
+                auto now = std::chrono::steady_clock::now();
+                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    now - clientLastSeen).count();
+                if (elapsed > clientTimeoutMs) {
+                    SPDLOG_INFO("Client {}:{} timed out after {}ms, disconnecting", clientIP, clientPort, elapsed);
+                    clientConnected = false;
+                    clientIP.clear();
+                    clientPort = 0;
+                }
+            }
+        }
+
         struct sockaddr_in senderAddr;
         socklen_t senderLen = sizeof(senderAddr);
-        
-        // Receive message (non-blocking)
+
         ssize_t received = recvfrom(portInfo.socket_fd,
                                    buffer,
                                    sizeof(buffer) - 1,
-                                   MSG_DONTWAIT,  // Non-blocking
+                                   MSG_DONTWAIT,
                                    (struct sockaddr*)&senderAddr,
                                    &senderLen);
-        
+
         if (received > 0) {
             buffer[received] = '\0';
             std::string message(buffer, received);
             std::string senderIP = inet_ntoa(senderAddr.sin_addr);
-            
+
+            // Handle client connection
+            {
+                std::lock_guard<std::mutex> lock(clientMutex);
+                if (!clientConnected) {
+                    // Accept new client
+                    clientIP = senderIP;
+                    clientPort = ntohs(senderAddr.sin_port);
+                    clientConnected = true;
+                    clientLastSeen = std::chrono::steady_clock::now();
+                    SPDLOG_INFO("Client connected: {}:{}", clientIP, clientPort);
+                } else if (clientIP == senderIP) {
+                    // Update last seen and port for existing client
+                    clientPort = ntohs(senderAddr.sin_port);
+                    clientLastSeen = std::chrono::steady_clock::now();
+                } else {
+                    // Reject message from different client while one is already connected
+                    SPDLOG_DEBUG("Ignoring message from {} (client {} is already connected)",
+                                senderIP, clientIP);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    continue;
+                }
+            }
+
             // Add to incoming queue
             {
                 std::lock_guard<std::mutex> lock(incomingQueueMutex);
                 incomingQueue.push(UDPMessage(port, message, senderIP));
             }
-            
+
             SPDLOG_DEBUG("Received message on port {} from {}: {}", port, senderIP, message);
         } else if (received < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
-            // Error occurred (but not just "would block")
-            if (running) {  // Only log if we're still supposed to be running
+            if (running) {
                 SPDLOG_ERROR("Error receiving on port {}: {}", port, strerror(errno));
             }
         }
-        
-        // Small sleep to prevent busy waiting
+
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }
@@ -373,8 +337,13 @@ bool UDPServer::sendMessage(int port, const std::string& message) {
         return false;
     }
 
-    if (it->second.type != PortType::BROADCAST) {
-        SPDLOG_WARN("sendMessage() can only be used on BROADCAST ports, port {} is RECEIVE_ONLY", port);
+    if (it->second.type != PortType::SEND) {
+        SPDLOG_WARN("sendMessage() can only be used on SEND ports, port {} is LISTEN", port);
+        return false;
+    }
+
+    if (!clientConnected) {
+        SPDLOG_DEBUG("No client connected, not queuing message for port {}", port);
         return false;
     }
 
@@ -382,7 +351,7 @@ bool UDPServer::sendMessage(int port, const std::string& message) {
         std::lock_guard<std::mutex> lock(outgoingQueueMutex);
         outgoingQueue.push(UDPMessage(port, message));
     }
-    outgoingQueueCV.notify_all();  // Wake broadcast threads immediately
+    outgoingQueueCV.notify_all();
     return true;
 }
 
@@ -391,7 +360,7 @@ bool UDPServer::getIncomingMessage(UDPMessage& msg) {
     if (incomingQueue.empty()) {
         return false;
     }
-    
+
     msg = incomingQueue.front();
     incomingQueue.pop();
     return true;
@@ -402,50 +371,22 @@ bool UDPServer::hasIncomingMessages() const {
     return !incomingQueue.empty();
 }
 
-bool UDPServer::isLocalIP(const std::string& ip) const {
-    // Check for loopback address
-    //! This will break receive functionality in localhost use-case
-    if (ip == "127.0.0.1" || ip == "::1" || ip == "localhost") {
-        return true;
+bool UDPServer::isClientConnected() const {
+    std::lock_guard<std::mutex> lock(clientMutex);
+    return clientConnected;
+}
+
+std::string UDPServer::getClientIP() const {
+    std::lock_guard<std::mutex> lock(clientMutex);
+    return clientIP;
+}
+
+void UDPServer::disconnectClient() {
+    std::lock_guard<std::mutex> lock(clientMutex);
+    if (clientConnected) {
+        SPDLOG_INFO("Disconnecting client {}:{}", clientIP, clientPort);
+        clientConnected = false;
+        clientIP.clear();
+        clientPort = 0;
     }
-    
-    // Get all local network interfaces and check if the IP matches
-    struct ifaddrs *ifaddr, *ifa;
-    if (getifaddrs(&ifaddr) == -1) {
-        SPDLOG_WARN("Failed to get network interfaces: {}", strerror(errno));
-        return false;
-    }
-    
-    bool isLocal = false;
-    for (ifa = ifaddr; ifa != nullptr; ifa = ifa->ifa_next) {
-        if (ifa->ifa_addr == nullptr) {
-            continue;
-        }
-        
-        // Check IPv4 addresses
-        if (ifa->ifa_addr->sa_family == AF_INET) {
-            struct sockaddr_in* sin = (struct sockaddr_in*)ifa->ifa_addr;
-            char localIP[INET_ADDRSTRLEN];
-            inet_ntop(AF_INET, &(sin->sin_addr), localIP, INET_ADDRSTRLEN);
-            
-            if (ip == localIP) {
-                isLocal = true;
-                break;
-            }
-        }
-        // Check IPv6 addresses
-        else if (ifa->ifa_addr->sa_family == AF_INET6) {
-            struct sockaddr_in6* sin6 = (struct sockaddr_in6*)ifa->ifa_addr;
-            char localIP[INET6_ADDRSTRLEN];
-            inet_ntop(AF_INET6, &(sin6->sin6_addr), localIP, INET6_ADDRSTRLEN);
-            
-            if (ip == localIP) {
-                isLocal = true;
-                break;
-            }
-        }
-    }
-    
-    freeifaddrs(ifaddr);
-    return isLocal;
 }

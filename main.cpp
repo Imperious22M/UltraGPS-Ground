@@ -124,17 +124,17 @@ int initSystem(){
 int main() {
 
 
-    //! UDP Server Broadcasts
+    //! UDP Server
     UDPServer server;
-    const uint broadcastInterval = 1000; // millisecond delay broadcast interval
-    server.setBroadcastInterval(broadcastInterval);
-    constexpr unsigned int commandPort = 8000;
-    constexpr unsigned int distanceBroadcastPort = 8002;
-    constexpr unsigned int serialBroadcastPort = 8003;
+    constexpr unsigned int commandPort = 9000;
+    constexpr unsigned int distanceSendPort = 8002;
+    constexpr unsigned int serialSendPort = 8003;
+    constexpr unsigned int distanceClientPort = 9001;  // Python listens for distances here
+    constexpr unsigned int serialClientPort = 9002;    // Python listens for serial here
 
-    server.addReceiveOnlyPort(commandPort);
-    server.addBroadcastPort(distanceBroadcastPort,"",0); 
-    server.addBroadcastPort(serialBroadcastPort,"",0); 
+    server.addListenPort(commandPort);
+    server.addSendPort(distanceSendPort, distanceClientPort);
+    server.addSendPort(serialSendPort, serialClientPort);
     server.start();
 
     
@@ -198,9 +198,9 @@ int main() {
                distanceStream << "\n";
                std::cout << std::endl;
                
-               //! Broadcast the distances and serial data
-               server.sendMessage(distanceBroadcastPort, distanceStream.str());
-               server.sendMessage(serialBroadcastPort, serialData);
+               //! Send the distances and serial data to connected client
+               server.sendMessage(distanceSendPort, distanceStream.str());
+               server.sendMessage(serialSendPort, serialData);
             }
         }
 
