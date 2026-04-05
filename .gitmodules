@@ -4,3 +4,6 @@
 [submodule "tomlplusplus"]
 	path = tomlplusplus
 	url = https://github.com/marzer/tomlplusplus.git
+[submodule "argparse"]
+	path = argparse
+	url = https://github.com/p-ranav/argparse.git
