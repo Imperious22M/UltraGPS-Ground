@@ -40,6 +40,10 @@ public:
     //! Pop one received line from the receive queue.
     //! Returns true and populates data if a line is available, false if the queue is empty.
     bool getReceived(std::string& data);
+
+    //! Clear the serial input buffer. Returns 0 on success, negative on failure.
+    int clearReadBuffer();
+
 protected:
     //! Open and configure the physical serial port.
     //! Called by begin() before threads are started.
@@ -68,11 +72,11 @@ private:
 
     //! Configure the serial port with the current settings. Returns 0 on success, negative on failure.
     int configurePort();
+
     //! Read up to nBytes from the serial port into buffer
     //! Times out after 100ms if no data is received. Returns number of bytes read, 0 on timeout, negative on error.
     int readSer(void* buffer, size_t nBytes) const;
-    //! Clear the serial input buffer. Returns 0 on success, negative on failure.
-    int clearReadBuffer();
+
     //! Thread functions for RX and TX loops
     void receiveLoop();
     void transmitLoop();

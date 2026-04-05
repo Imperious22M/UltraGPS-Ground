@@ -135,8 +135,9 @@ int main(int argc, char *argv[]) {
 
    std::this_thread::sleep_for(std::chrono::seconds(5)); // Wait for serial device to initialize 
     //! Test serial modules
-    serial.sendData("C\n");
+    serial.clearReadBuffer(); // Clear any startup messages from the serial device
     while(true){
+        serial.sendData("P\n");
         std::string line;
         if(serial.getReceived(line)){
             SPDLOG_INFO("Received from serial: {}", line);
