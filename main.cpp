@@ -5,20 +5,24 @@
 #include <array>
 #include <cmath>
 #include <iostream>
-#include <spdlog/spdlog.h>
-#include <toml++/toml.h>
 #include <chrono>
 #include <thread>
 #include <sstream>
+#define  SPDLOG_NO_DATE_TIME
+#include <spdlog/spdlog.h>
+#include <toml++/toml.h>
+#include <argparse/argparse.hpp>
 #include "ServerModule/serverModule.h"
 #include "SerialModule/serial.h"
 
-//! Serial Interface
-Serial rxDev; // Create the receiving device (Arduino)
-//! Set the default baud rate for the serial device
-constexpr speed_t baudRate = B38400; // Default baud rate for the serial device
-//! Default Serial Port
-std::string serialPort = "/dev/ttyACM0"; 
+//! Serial Interface with Arduino
+Serial rxDev; 
+speed_t baudRate; 
+uint32_t baudRateInt;
+std::string serialPort; 
+
+//! Network device to bind to (empty string means default active network)
+std::string netDevice = "";
 
 //! UDP Server
 UDPServer server;
@@ -27,38 +31,115 @@ constexpr unsigned int distanceSendPort = 8002;
 constexpr unsigned int serialSendPort = 8003;
 constexpr unsigned int distanceClientPort = 9001;  // Python listens for distances here
 constexpr unsigned int serialClientPort = 9002;    // Python listens for serial here
+unsigned int clientTimeoutMs; // Timeout for client communications
+unsigned int tcpPort; // TCP port for communication server 
+unsigned int udpPort; // UDP port for communication server 
 
+//! Argument parser
+argparse::ArgumentParser program("UltraGPS Positioning System", "1.0");
 
-//! Initialization routine to setup various things
-int initSystem(){
-    spdlog::set_level(spdlog::level::debug); 
-    SPDLOG_INFO("Initializing UltraGPS Positioning System...");
+//! Helper function that sets up the command-line arguments using argparse. 
+void parseBuilder(){
+    //! Add command-line arguments
+    program.add_argument("-v", "--verbose")
+        .help("Enable verbose logging")
+        .flag();
 
-    //! Instantiate serial device
+    program.add_argument("-s", "--serial-port")
+        .help("Serial port to connect to (default: /dev/ttyACM0)")
+        .default_value(std::string("/dev/ttyACM0"));
+
+    program.add_argument("-b", "--baud-rate")
+        .help("Baud rate for the serial device (default: 38400)")
+        .choices(9600u, 19200u, 38400u, 57600u, 115200u)
+        .default_value(38400u)
+        .scan<'u', unsigned int>();
+
+    program.add_argument("-n", "--net-device")
+        .help("Network device to connect that will be used for server communication (default: whatever network is active)")
+        .default_value(std::string(""));
+
+    program.add_argument("-t", "--tcp-port")
+        .help("TCP port for communication server (default: 9000)")
+        .default_value(9000u)
+        .scan<'u', unsigned int>();
+
+    program.add_argument("-u", "--udp-port")
+        .help("UDP port for communcation server (default: 9001)")
+        .default_value(9001u)
+        .scan<'u', unsigned int>();
+
+    program.add_argument("-T", "--server-timeout")
+        .help("Server timeout in milliseconds (default: 5000)")
+        .default_value(5000u)
+        .scan<'u', unsigned int>();
+
+}
+
+int main(int argc, char *argv[]) {
+
+    //! Build the argument parser
+    parseBuilder(); 
+    //! Decode arguments
+    try {
+        program.parse_args(argc, argv);
+    } catch (const std::runtime_error& err) {
+        std::cerr << err.what() << std::endl;
+        return 1;
+    }
+
+    //! Populate variables from arguments
+    serialPort = program.get<std::string>("--serial-port");
+    netDevice = program.get<std::string>("--net-device");
+    tcpPort = program.get<unsigned int>("--tcp-port");
+    udpPort = program.get<unsigned int>("--udp-port");
+    clientTimeoutMs = program.get<unsigned int>("--server-timeout");
+    switch (program.get<unsigned int>("--baud-rate"))
+    {
+    case 9600u:
+        baudRate = B9600;
+        baudRateInt = 9600;
+        break;
+    case 19200u:
+        baudRate = B19200;
+        baudRateInt = 19200;
+        break;
+    case 38400u:
+        baudRate = B38400;
+        baudRateInt = 38400;
+        break;
+    case 57600u:
+        baudRate = B57600;
+        baudRateInt = 57600;
+        break;
+    case 115200u:
+        baudRate = B115200;
+        baudRateInt = 115200;
+        break;
+    }
+
+    //! Setup logging with spdlog
+    spdlog::set_pattern("[%^%l%$] %v");
+    if(program["--verbose"] == true){
+        spdlog::set_level(spdlog::level::debug); 
+    }
+
+    SPDLOG_INFO("~~~~~~~~UltraGPS Positioning System~~~~~~~~");
+
+    //! Initialize serial device
+    //! TODO SPLIT SERIAL INTO LISTENING AND SENDING THREADS
+    //! AND TEST IT!
     if( rxDev.begin(serialPort.c_str(), baudRate) < 0 ){
         SPDLOG_ERROR("Failed to open serial port {}", serialPort);
         return -1;
     }
-    SPDLOG_INFO("Serial port {} opened at default 38400 baud", serialPort);
-    
-    return 1;
-}
+    SPDLOG_INFO("Serial port {} opened at {} baud", serialPort, baudRateInt);
 
-int main() {
-
+    //! Create and start the UDP/TCP server
     server.addListenPort(commandPort);
     server.addSendPort(distanceSendPort, distanceClientPort);
     server.addSendPort(serialSendPort, serialClientPort);
     server.start();
-
-    if(initSystem() < 0){
-        SPDLOG_ERROR("Failed to initialize positioning system...exiting");
-        return -1;
-    }else{
-        SPDLOG_INFO("Initialization complete");
-        //! Wait for all terminal messages to print
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));  // 1000ms
-    }
 
     while(true){
         //! Main positioning loop
