@@ -16,7 +16,7 @@
 #include "SerialModule/serial.h"
 
 //! Serial Interface with Arduino
-Serial rxDev; 
+Serial serial; 
 speed_t baudRate; 
 uint32_t baudRateInt;
 std::string serialPort; 
@@ -126,39 +126,49 @@ int main(int argc, char *argv[]) {
 
     SPDLOG_INFO("~~~~~~~~UltraGPS Positioning System~~~~~~~~");
 
-    //! Initialize serial device
-    //! TODO SPLIT SERIAL INTO LISTENING AND SENDING THREADS
-    //! AND TEST IT!
-    if( rxDev.begin(serialPort.c_str(), baudRate) < 0 ){
+    //! Initialize serial device and start RX/TX threads
+    if( serial.begin(serialPort.c_str(), baudRate) < 0 ){
         SPDLOG_ERROR("Failed to open serial port {}", serialPort);
         return -1;
     }
     SPDLOG_INFO("Serial port {} opened at {} baud", serialPort, baudRateInt);
 
-    //! Create and start the UDP/TCP server
-    server.addListenPort(commandPort);
-    server.addSendPort(distanceSendPort, distanceClientPort);
-    server.addSendPort(serialSendPort, serialClientPort);
-    server.start();
-
+   std::this_thread::sleep_for(std::chrono::seconds(5)); // Wait for serial device to initialize 
+    //! Test serial modules
+    serial.sendData("C\n");
     while(true){
-        //! Main positioning loop
-        std::string serialData;
-        std::stringstream distanceStream;
-
-        //! Check for incoming UDP messages
-        UDPMessage incomingMsg;
-        std::string pulseCmd = "P\n";
-        while(server.getIncomingMessage(incomingMsg)) {
-            SPDLOG_INFO("Received UDP message on port {} from {}: {}", 
-                       incomingMsg.port, incomingMsg.sender_ip, incomingMsg.message);
-
-            //! Send the distances and serial data to connected client
-            server.sendMessage(distanceSendPort, "0\n");
-            server.sendMessage(serialSendPort, "O\n");
+        std::string line;
+        if(serial.getReceived(line)){
+            SPDLOG_INFO("Received from serial: {}", line);
         }
-
-        //! Sleep for a short duration to prevent busy-waiting
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));  //
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
+    
+
+    ////! Create and start the UDP/TCP server
+    //server.addListenPort(commandPort);
+    //server.addSendPort(distanceSendPort, distanceClientPort);
+    //server.addSendPort(serialSendPort, serialClientPort);
+    //server.start();
+
+    //while(true){
+        ////! Main positioning loop
+        //std::string serialData;
+        //std::stringstream distanceStream;
+
+        ////! Check for incoming UDP messages
+        //UDPMessage incomingMsg;
+        //std::string pulseCmd = "P\n";
+        //while(server.getIncomingMessage(incomingMsg)) {
+            //SPDLOG_INFO("Received UDP message on port {} from {}: {}", 
+                       //incomingMsg.port, incomingMsg.sender_ip, incomingMsg.message);
+
+            ////! Send the distances and serial data to connected client
+            //server.sendMessage(distanceSendPort, "0\n");
+            //server.sendMessage(serialSendPort, "O\n");
+        //}
+
+        ////! Sleep for a short duration to prevent busy-waiting
+        //std::this_thread::sleep_for(std::chrono::milliseconds(1));  //
+    //}
 }
