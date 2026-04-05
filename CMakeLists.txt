@@ -22,17 +22,13 @@ add_subdirectory("${CMAKE_SOURCE_DIR}/tomlplusplus")
 add_executable(UltraGpsXY
     main.cpp
     SerialModule/serial.cpp
-    CordDecoder/cordDecoder.cpp
-    SettingsModule/settings.cpp
     ServerModule/serverModule.cpp
 )
 
 # Include the directory for header files
 target_include_directories(UltraGpsXY PRIVATE SerialModule)
 target_include_directories(UltraGpsXY PRIVATE interfaces)
-target_include_directories(UltraGpsXY PRIVATE CordDecoder)
 target_include_directories(UltraGpsXY PRIVATE SettingsModule)
-target_include_directories(UltraGpsXY PRIVATE ServerModule)
 
 # Link the spdlog library to the target
 target_link_libraries(UltraGpsXY PRIVATE spdlog::spdlog)
@@ -46,5 +42,4 @@ target_link_libraries(UltraGpsXY PRIVATE tomlplusplus::tomlplusplus)
 target_compile_definitions(UltraGpsXY PRIVATE DEBUG)
 
 # TODO
-# Add windows binary suport
 # Add Linux dpkg and binary support
