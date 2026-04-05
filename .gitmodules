@@ -1,6 +1,3 @@
-[submodule "UltraGPS-Arduino"]
-	path = UltraGPS-Arduino
-	url = git@github.com:Imperious22M/UltraGPS-Arduino.git
 [submodule "spdlog"]
 	path = spdlog
 	url = https://github.com/gabime/spdlog.git
