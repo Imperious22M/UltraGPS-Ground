@@ -37,8 +37,8 @@ public:
     //! Push an ASCII string onto the transmit queue to be sent over serial.
     void sendData(const std::string& data);
 
-    //! Pop one received line from the receive queue.
-    //! Returns true and populates data if a line is available, false if the queue is empty.
+    //! Copy the most recently received line into data.
+    //! Returns true and populates data if a line is available, false if none has been received.
     bool getReceived(std::string& data);
 
     //! Clear the serial input buffer. Returns 0 on success, negative on failure.
@@ -58,7 +58,7 @@ protected:
     int writeSer(const void* buffer, size_t nBytes);
 
 private:
-    std::queue<std::string> serialReceive;
+    std::string serialReceive;
     std::queue<std::string> serialTransmit;
     std::mutex receiveMutex;
     std::mutex transmitMutex;

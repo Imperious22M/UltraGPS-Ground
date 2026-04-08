@@ -26,11 +26,13 @@ add_executable(UltraGpsXY
     main.cpp
     SerialModule/serial.cpp
     ServerModule/serverModule.cpp
+    CommsModule/comms.cpp
 )
 
 # Include the directory for header files
 target_include_directories(UltraGpsXY PRIVATE SerialModule)
 target_include_directories(UltraGpsXY PRIVATE SettingsModule)
+target_include_directories(UltraGpsXY PRIVATE CommsModule)
 
 # Link the spdlog library to the target
 target_link_libraries(UltraGpsXY PRIVATE spdlog::spdlog)

@@ -1,4 +1,4 @@
-//! file: Implementation of Serial — POSIX serial port operations.
+//! file: Implementation of Serial.h
 
 #include "serial.h"
 
@@ -103,7 +103,10 @@ int Serial::writeSer(const void* buffer, size_t nBytes) {
 }
 
 int Serial::clearReadBuffer() {
-    return tcflush(portFd, TCIFLUSH);
+    tcflush(portFd, TCIOFLUSH);
+    std::lock_guard<std::mutex> lock(receiveMutex);
+    serialReceive.clear();
+    return 0;
 }
 
 int Serial::begin(const char* portName, speed_t baudRate) {
@@ -141,8 +144,8 @@ bool Serial::getReceived(std::string& data) {
     if (serialReceive.empty()) {
         return false;
     }
-    data = serialReceive.front();
-    serialReceive.pop();
+    data = serialReceive;
+    serialReceive.clear();
     return true;
 }
 
@@ -175,7 +178,7 @@ void Serial::receiveLoop() {
         if (c == '\n') {
             if (!line.empty()) {
                 std::lock_guard<std::mutex> lock(receiveMutex);
-                serialReceive.push(line);
+                serialReceive = line;
                 line.clear();
             }
         } else {

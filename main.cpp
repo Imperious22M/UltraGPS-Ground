@@ -14,6 +14,7 @@
 #include <argparse/argparse.hpp>
 #include "ServerModule/serverModule.h"
 #include "SerialModule/serial.h"
+#include "CommsModule/comms.h"
 
 //! Serial Interface with Arduino
 Serial serial; 
@@ -134,17 +135,29 @@ int main(int argc, char *argv[]) {
     SPDLOG_INFO("Serial port {} opened at {} baud", serialPort, baudRateInt);
 
    std::this_thread::sleep_for(std::chrono::seconds(5)); // Wait for serial device to initialize 
-    //! Test serial modules
-    serial.clearReadBuffer(); // Clear any startup messages from the serial device
-    while(true){
-        serial.sendData("P\n");
-        std::string line;
-        if(serial.getReceived(line)){
-            SPDLOG_INFO("Received from serial: {}", line);
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    //! Test the comms module
+    serial.end(); // Stop serial threads to prevent interference with comms module testing
+    SPDLOG_INFO("Testing comms module...");
+    Comms comms;
+    if(comms.begin(serialPort, baudRateInt) < 0){
+        SPDLOG_ERROR("Failed to initialize comms module");
+        return -1;
     }
-    
+    std::this_thread::sleep_for(std::chrono::seconds(2)); // Wait for serial threads to cleanly exit
+    std::string res;
+    comms.sendNormalCommand("P", res);
+    comms.sendNormalCommand("P", res);
+    comms.sendNormalCommand("P", res);
+    comms.sendNormalCommand("S", res);
+    comms.sendContinousCommand("C");
+    comms.getContinousResponse(res);
+    comms.getContinousResponse(res);
+    comms.getContinousResponse(res);
+    comms.getContinousResponse(res);
+    comms.sendNormalCommand("P", res);
+    comms.sendNormalCommand("P", res);
+    comms.sendNormalCommand("S", res);
 
     ////! Create and start the UDP/TCP server
     //server.addListenPort(commandPort);
