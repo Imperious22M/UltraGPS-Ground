@@ -15,6 +15,8 @@ ServerModule::ServerModule(int tcpPort, int udpPort, const std::string& netDevic
     : tcpPort_(tcpPort), udpPort_(udpPort)
 {
     resolveNetwork(netDevice);
+    SPDLOG_INFO("ServerModule constructed with TCP port {}, UDP port {}, net device '{}'",
+                tcpPort_, udpPort_, netDevice.empty() ? "auto-detect" : netDevice);
 }
 
 ServerModule::~ServerModule() {
@@ -26,11 +28,35 @@ ServerModule::~ServerModule() {
 // ============================================================================
 
 void ServerModule::resolveNetwork(const std::string& requestedDevice) {
+    if (!requestedDevice.empty()) {
+        netDevice_ = requestedDevice;
+        ip_ = "0.0.0.0";  // fallback if lookup fails
+
+        struct ifaddrs* ifap = nullptr;
+        if (getifaddrs(&ifap) == 0) {
+            for (struct ifaddrs* ifa = ifap; ifa; ifa = ifa->ifa_next) {
+                if (!ifa->ifa_addr || ifa->ifa_addr->sa_family != AF_INET) continue;
+                if (std::string(ifa->ifa_name) != requestedDevice) continue;
+                char ipbuf[INET_ADDRSTRLEN];
+                inet_ntop(AF_INET, &reinterpret_cast<struct sockaddr_in*>(ifa->ifa_addr)->sin_addr,
+                          ipbuf, sizeof(ipbuf));
+                ip_ = ipbuf;
+                break;
+            }
+            freeifaddrs(ifap);
+        } else {
+            SPDLOG_WARN("getifaddrs failed: {}", strerror(errno));
+        }
+
+        SPDLOG_INFO("ServerModule: interface={} ip={}", netDevice_, ip_);
+        return;
+    }
+
     struct ifaddrs* ifap = nullptr;
     if (getifaddrs(&ifap) != 0) {
         SPDLOG_WARN("getifaddrs failed: {}", strerror(errno));
         ip_ = "0.0.0.0";
-        netDevice_ = requestedDevice.empty() ? "any" : requestedDevice;
+        netDevice_ = "any";
         return;
     }
 
@@ -42,11 +68,6 @@ void ServerModule::resolveNetwork(const std::string& requestedDevice) {
         if (!(ifa->ifa_flags & IFF_UP) || (ifa->ifa_flags & IFF_LOOPBACK)) continue;
 
         std::string name(ifa->ifa_name);
-
-        if (!requestedDevice.empty()) {
-            if (name == requestedDevice) { best = ifa; break; }
-            continue;
-        }
 
         // Prefer wireless, then wired ethernet, then anything else.
         int priority;
@@ -66,7 +87,7 @@ void ServerModule::resolveNetwork(const std::string& requestedDevice) {
     } else {
         SPDLOG_WARN("No suitable network interface found, binding to INADDR_ANY");
         ip_ = "0.0.0.0";
-        netDevice_ = requestedDevice.empty() ? "any" : requestedDevice;
+        netDevice_ = "any";
     }
 
     freeifaddrs(ifap);
