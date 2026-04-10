@@ -24,6 +24,8 @@ public:
 
     bool getContinousResponse(std::string &response);
 
+    bool isContinousMode() const { return continousMode; }
+
 private:
     /* Response string buffer and timeout (ms) value*/
     std::string responseBuff;

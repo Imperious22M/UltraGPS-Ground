@@ -25,16 +25,11 @@ std::string serialPort;
 //! Network device to bind to (empty string means default active network)
 std::string netDevice = "";
 
-//! UDP Server
-UDPServer server;
-constexpr unsigned int commandPort = 9000;
-constexpr unsigned int distanceSendPort = 8002;
-constexpr unsigned int serialSendPort = 8003;
-constexpr unsigned int distanceClientPort = 9001;  // Python listens for distances here
-constexpr unsigned int serialClientPort = 9002;    // Python listens for serial here
-unsigned int clientTimeoutMs; // Timeout for client communications
-unsigned int tcpPort; // TCP port for communication server 
-unsigned int udpPort; // UDP port for communication server 
+//! Network server (TCP commands + UDP continuous stream)
+ServerModule server;
+unsigned int clientTimeoutMs; // Timeout for client communications (reserved for future use)
+unsigned int tcpPort; // TCP port for communication server
+unsigned int udpPort; // UDP port for communication server
 
 //! Argument parser
 argparse::ArgumentParser program("UltraGPS Positioning System", "1.0");
@@ -125,64 +120,93 @@ int main(int argc, char *argv[]) {
         spdlog::set_level(spdlog::level::debug); 
     }
 
+
     SPDLOG_INFO("~~~~~~~~UltraGPS Positioning System~~~~~~~~");
 
-    //! Initialize serial device and start RX/TX threads
-    if( serial.begin(serialPort.c_str(), baudRate) < 0 ){
-        SPDLOG_ERROR("Failed to open serial port {}", serialPort);
-        return -1;
-    }
-    SPDLOG_INFO("Serial port {} opened at {} baud", serialPort, baudRateInt);
-
-   std::this_thread::sleep_for(std::chrono::seconds(5)); // Wait for serial device to initialize 
-
     //! Test the comms module
-    serial.end(); // Stop serial threads to prevent interference with comms module testing
-    SPDLOG_INFO("Testing comms module...");
+    //SPDLOG_INFO("Testing comms module...");
     Comms comms;
     if(comms.begin(serialPort, baudRateInt) < 0){
         SPDLOG_ERROR("Failed to initialize comms module");
         return -1;
     }
-    std::this_thread::sleep_for(std::chrono::seconds(2)); // Wait for serial threads to cleanly exit
+    std::this_thread::sleep_for(std::chrono::seconds(7)); // Wait for serial device to initialize 
     std::string res;
     comms.sendNormalCommand("P", res);
     comms.sendNormalCommand("P", res);
     comms.sendNormalCommand("P", res);
-    comms.sendNormalCommand("S", res);
-    comms.sendContinousCommand("C");
-    comms.getContinousResponse(res);
-    comms.getContinousResponse(res);
-    comms.getContinousResponse(res);
-    comms.getContinousResponse(res);
-    comms.sendNormalCommand("P", res);
-    comms.sendNormalCommand("P", res);
-    comms.sendNormalCommand("S", res);
+    //comms.sendNormalCommand("P", res);
+    //comms.sendNormalCommand("P", res);
+    //comms.sendNormalCommand("S", res);
+    //comms.sendContinousCommand("C");
+    //comms.getContinousResponse(res);
+    //comms.getContinousResponse(res);
+    //comms.getContinousResponse(res);
+    //comms.getContinousResponse(res);
+    //comms.sendNormalCommand("P", res);
+    //comms.sendNormalCommand("P", res);
+    //comms.sendNormalCommand("S", res);
 
-    ////! Create and start the UDP/TCP server
-    //server.addListenPort(commandPort);
-    //server.addSendPort(distanceSendPort, distanceClientPort);
-    //server.addSendPort(serialSendPort, serialClientPort);
-    //server.start();
+    //! Testing the network server module
+    SPDLOG_INFO("Testing network server module...");
+    ServerModule server(tcpPort, udpPort);
 
-    //while(true){
-        ////! Main positioning loop
-        //std::string serialData;
-        //std::stringstream distanceStream;
+    if(!server.start()){
+        SPDLOG_ERROR("Failed to start server module");
+        return -1;
+    }
+    while(true){
+        std::string cmd;
+        std::string cont;
 
-        ////! Check for incoming UDP messages
-        //UDPMessage incomingMsg;
-        //std::string pulseCmd = "P\n";
-        //while(server.getIncomingMessage(incomingMsg)) {
-            //SPDLOG_INFO("Received UDP message on port {} from {}: {}", 
-                       //incomingMsg.port, incomingMsg.sender_ip, incomingMsg.message);
+        if(server.receiveCommand(cmd)){
+            SPDLOG_INFO("Received TCP command: {}", cmd);
+            //! Differentiate between normal and continuous commands based on the first character 
+            //! (P/S for normal, C for continuous)
+            if(cmd == "P\n" || cmd == "S\n"){
+                std::string res;
+                if(!comms.sendNormalCommand(cmd.substr(0, cmd.length() - 1), res)){
+                    SPDLOG_ERROR("Failed to send normal command through comms module");
+                }
+                if(!res.empty()){
+                    SPDLOG_INFO("Received response for normal command: {}", res);
+                    if(!server.sendCommand(res)){
+                        SPDLOG_ERROR("Failed to send response through server module");
+                    } else {
+                        SPDLOG_INFO("Sent response through server module");
+                    }
+                } else {
+                    SPDLOG_ERROR("No response received for normal command");
+                }
+            }
+            //! Send continous command
+            if(cmd == "C\n"){
+                if(!comms.sendContinousCommand(cmd.substr(0, cmd.length() - 1))){
+                    SPDLOG_ERROR("Failed to send continuous command through comms module");
+                } else {
+                    SPDLOG_INFO("Sent continuous command through comms module");
+                }
+            }
+        }
 
-            ////! Send the distances and serial data to connected client
-            //server.sendMessage(distanceSendPort, "0\n");
-            //server.sendMessage(serialSendPort, "O\n");
-        //}
+        //! If the comms module is in continuous mode, attempt to get the latest response
+        //! and send it through UDP
+        if(comms.isContinousMode()){
+            std::string res;
+            if(comms.getContinousResponse(res)){
+                SPDLOG_INFO("Received SERIAL continuous data: {}", res);
+                if(!server.sendContinuous(res)){
+                    SPDLOG_ERROR("Failed to send continuous data through server module");
+                } else {
+                    SPDLOG_INFO("Sent continuous data through server module");
+                }
+            } else {
+                SPDLOG_ERROR("Failed to get continuous response from comms module");
+            }
+        }
 
-        ////! Sleep for a short duration to prevent busy-waiting
-        //std::this_thread::sleep_for(std::chrono::milliseconds(1));  //
-    //}
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+
 }
