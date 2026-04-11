@@ -87,7 +87,6 @@ int main(int argc, char *argv[]) {
     //! Populate variables from arguments
     serialPort = program.get<std::string>("--serial-port");
     netDevice = program.get<std::string>("--net-device");
-    SPDLOG_INFO("Using network device: {}", netDevice.empty() ? "auto-detect" : netDevice);
     tcpPort = program.get<unsigned int>("--tcp-port");
     udpPort = program.get<unsigned int>("--udp-port");
     clientTimeoutMs = program.get<unsigned int>("--server-timeout");
@@ -118,27 +117,54 @@ int main(int argc, char *argv[]) {
     //! Setup logging with spdlog
     spdlog::set_pattern("[%^%l%$] %v");
     if(program["--verbose"] == true){
-        spdlog::set_level(spdlog::level::debug); 
+        spdlog::set_level(spdlog::level::debug);
     }
 
-    SPDLOG_INFO("~~~~~~~~UltraGPS Positioning System~~~~~~~~");
+    //! Construct modules before banner so IP address is resolved for display
     Comms comms;
     ServerModule server(tcpPort, udpPort, netDevice);
-    SPDLOG_INFO("Initialized comms and server modules");
-    SPDLOG_INFO("IP Address: {}", server.getIP());
 
+    //! Print ASCII art banner — temporarily switch to bare format (no level prefix)
+    spdlog::set_pattern("%v");
+    spdlog::info("");
+    spdlog::info(" _    _ _ _              _____ _____   _____ ");
+    spdlog::info("| |  | | | |            / ____|  __ \\ / ____|");
+    spdlog::info("| |  | | | |_ _ __ __ _| |  __| |__) | (___  ");
+    spdlog::info("| |  | | | __| '__/ _` | | |_ |  ___/ \\___ \\ ");
+    spdlog::info("| |__| | | |_| | | (_| | |__| | |     ____) |");
+    spdlog::info(" \\____/|_|\\__|_|  \\__,_|\\_____|_|    |_____/ ");
+    spdlog::info("               Ground Station  v1.0");
+    spdlog::info("");
+    spdlog::info("  +-------------------------------------------------+");
+    spdlog::info("  |  Serial Port  : {:<32}|", serialPort);
+    spdlog::info("  |  Baud Rate    : {:<32}|", std::to_string(baudRateInt) + " bps");
+    spdlog::info("  |  IP Address   : {:<32}|", server.getIP());
+    spdlog::info("  |  TCP Port     : {:<32}|", tcpPort);
+    spdlog::info("  |  UDP Port     : {:<32}|", udpPort);
+    spdlog::info("  |  Net Device   : {:<32}|", netDevice.empty() ? "auto-detect" : netDevice);
+    spdlog::info("  +-------------------------------------------------+");
+    spdlog::info("");
+    spdlog::set_pattern("[%^%l%$] %v");
+
+    //! Initialize Comms module (serial link to base-station Arduino)
+    spdlog::info("Initializing Comms module...");
     if(comms.begin(serialPort, baudRateInt) < 0){
-        SPDLOG_ERROR("Failed to initialize comms module");
+        spdlog::error("Failed to initialize Comms module");
         return -1;
     }
-    std::this_thread::sleep_for(std::chrono::seconds(7)); // Wait for serial device to initialize 
+    spdlog::info("Comms module initialized  [{} @ {} bps]", serialPort, baudRateInt);
+
+    std::this_thread::sleep_for(std::chrono::seconds(7)); // Wait for serial device to initialize
     std::string res;
     comms.sendNormalCommand("P", res);
 
+    //! Start Server module (TCP command socket + UDP continuous stream)
+    spdlog::info("Starting Server module...");
     if(!server.start()){
-        SPDLOG_ERROR("Failed to start server module");
+        spdlog::error("Failed to start Server module");
         return -1;
     }
+    spdlog::info("Server module started  [TCP:{} | UDP:{} | IP:{}]", tcpPort, udpPort, server.getIP());
 
     while(true){
         std::string cmd;
