@@ -25,8 +25,8 @@ int Serial::configurePort() {
     tty.c_cflag &= ~CSTOPB;          // 1 stop bit
     tty.c_cflag &= ~CSIZE;
     tty.c_cflag |= CS8;              // 8 bits per byte
-    tty.c_cflag &= ~CRTSCTS;         // No flow control
-    tty.c_cflag |= CREAD | CLOCAL;   // Enable read, ignore ctrl lines
+    tty.c_cflag &= ~CRTSCTS;         // No hardware flow control
+    tty.c_cflag |= CREAD | CLOCAL;   // Enable read, ignore modem ctrl lines
 
     tty.c_lflag &= ~ICANON;          // Disable canonical mode (raw input)
     tty.c_lflag &= ~ECHO;

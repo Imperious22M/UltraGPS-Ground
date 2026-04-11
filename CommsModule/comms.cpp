@@ -27,37 +27,33 @@ Comms::CommandType Comms::getCommandType(const std::string& rawCmd) const{
 int Comms::begin(std::string portName, int baudRate, int timeout){
 
     this->serialPort = portName;
-    this->baudRate = baudRate;
+    this->baudRateInt = baudRate;
+    this->baudRate = B38400;
     this->responseTimeout = timeout;
 
     switch (baudRate)
     {
     case 9600u:
         this->baudRate = B9600;
-        this->baudRateInt = 9600;
         break;
     case 19200u:
         this->baudRate = B19200;
-        this->baudRateInt = 19200;
         break;
     case 38400u:
         this->baudRate = B38400;
-        this->baudRateInt = 38400;
         break;
     case 57600u:
         this->baudRate = B57600;
-        this->baudRateInt = 57600;
         break;
     case 115200u:
         this->baudRate = B115200;
-        this->baudRateInt = 115200;
         break;
     default:
         SPDLOG_ERROR("Invalid baud rate specified: {}", baudRate);
         return -1;
     }
     //! Initialize serial device and start RX/TX threads
-    if( serial.begin(this->serialPort.c_str(), baudRate) < 0 ){
+    if( serial.begin(this->serialPort.c_str(), this->baudRate) < 0 ){
         SPDLOG_ERROR("Failed to open serial port {}", serialPort);
         return -1;
     }
