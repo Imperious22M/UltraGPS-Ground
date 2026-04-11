@@ -1,7 +1,28 @@
 #include "comms.h"
 #include <chrono>
 #include <thread>
+#include <algorithm>
 
+std::string Comms::extractCommand(const std::string& rawCmd) const{
+    std::string cmd = rawCmd;
+    while(!cmd.empty() && (cmd.back() == '\n' || cmd.back() == '\r')){
+        cmd.pop_back();
+    }
+    return cmd;
+}
+
+bool Comms::isValidCommand(const std::string& rawCmd) const{
+    return getCommandType(rawCmd) != CommandType::Invalid;
+}
+
+Comms::CommandType Comms::getCommandType(const std::string& rawCmd) const{
+    std::string cmd = extractCommand(rawCmd);
+    auto it = validCommands.find(cmd);
+    if(it != validCommands.end()){
+        return it->second;
+    }
+    return CommandType::Invalid;
+}
 
 int Comms::begin(std::string portName, int baudRate, int timeout){
 

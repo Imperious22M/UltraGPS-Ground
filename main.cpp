@@ -87,6 +87,7 @@ int main(int argc, char *argv[]) {
     //! Populate variables from arguments
     serialPort = program.get<std::string>("--serial-port");
     netDevice = program.get<std::string>("--net-device");
+    SPDLOG_INFO("Using network device: {}", netDevice.empty() ? "auto-detect" : netDevice);
     tcpPort = program.get<unsigned int>("--tcp-port");
     udpPort = program.get<unsigned int>("--udp-port");
     clientTimeoutMs = program.get<unsigned int>("--server-timeout");
@@ -120,12 +121,12 @@ int main(int argc, char *argv[]) {
         spdlog::set_level(spdlog::level::debug); 
     }
 
-
     SPDLOG_INFO("~~~~~~~~UltraGPS Positioning System~~~~~~~~");
-
-    //! Test the comms module
-    //SPDLOG_INFO("Testing comms module...");
     Comms comms;
+    ServerModule server(tcpPort, udpPort, netDevice);
+    SPDLOG_INFO("Initialized comms and server modules");
+    SPDLOG_INFO("IP Address: {}", server.getIP());
+
     if(comms.begin(serialPort, baudRateInt) < 0){
         SPDLOG_ERROR("Failed to initialize comms module");
         return -1;
@@ -133,64 +134,49 @@ int main(int argc, char *argv[]) {
     std::this_thread::sleep_for(std::chrono::seconds(7)); // Wait for serial device to initialize 
     std::string res;
     comms.sendNormalCommand("P", res);
-    comms.sendNormalCommand("P", res);
-    comms.sendNormalCommand("P", res);
-    //comms.sendNormalCommand("P", res);
-    //comms.sendNormalCommand("P", res);
-    //comms.sendNormalCommand("S", res);
-    //comms.sendContinousCommand("C");
-    //comms.getContinousResponse(res);
-    //comms.getContinousResponse(res);
-    //comms.getContinousResponse(res);
-    //comms.getContinousResponse(res);
-    //comms.sendNormalCommand("P", res);
-    //comms.sendNormalCommand("P", res);
-    //comms.sendNormalCommand("S", res);
-
-    //! Testing the network server module
-    SPDLOG_INFO("Testing network server module...");
-    ServerModule server(tcpPort, udpPort);
 
     if(!server.start()){
         SPDLOG_ERROR("Failed to start server module");
         return -1;
     }
+
     while(true){
         std::string cmd;
-        std::string cont;
 
         if(server.receiveCommand(cmd)){
             SPDLOG_INFO("Received TCP command: {}", cmd);
-            //! Differentiate between normal and continuous commands based on the first character 
-            //! (P/S for normal, C for continuous)
-            if(cmd == "P\n" || cmd == "S\n"){
-                std::string res;
-                if(!comms.sendNormalCommand(cmd.substr(0, cmd.length() - 1), res)){
-                    SPDLOG_ERROR("Failed to send normal command through comms module");
-                }
-                if(!res.empty()){
-                    SPDLOG_INFO("Received response for normal command: {}", res);
-                    if(!server.sendCommand(res)){
-                        SPDLOG_ERROR("Failed to send response through server module");
-                    } else {
-                        SPDLOG_INFO("Sent response through server module");
+
+            if(!comms.isValidCommand(cmd)){
+                SPDLOG_WARN("Discarding invalid command: {}", comms.extractCommand(cmd));
+            } else {
+                std::string cleanCmd = comms.extractCommand(cmd);
+                Comms::CommandType type = comms.getCommandType(cmd);
+
+                if(type == Comms::CommandType::Normal){
+                    std::string res;
+                    if(!comms.sendNormalCommand(cleanCmd, res)){
+                        SPDLOG_ERROR("Failed to send normal command through comms module");
                     }
-                } else {
-                    SPDLOG_ERROR("No response received for normal command");
-                }
-            }
-            //! Send continous command
-            if(cmd == "C\n"){
-                if(!comms.sendContinousCommand(cmd.substr(0, cmd.length() - 1))){
-                    SPDLOG_ERROR("Failed to send continuous command through comms module");
-                } else {
-                    SPDLOG_INFO("Sent continuous command through comms module");
+                    if(!res.empty()){
+                        SPDLOG_INFO("Received response for normal command: {}", res);
+                        if(!server.sendCommand(res)){
+                            SPDLOG_ERROR("Failed to send response through server module");
+                        } else {
+                            SPDLOG_INFO("Sent response through server module");
+                        }
+                    } else {
+                        SPDLOG_ERROR("No response received for normal command");
+                    }
+                } else if(type == Comms::CommandType::Continous){
+                    if(!comms.sendContinousCommand(cleanCmd)){
+                        SPDLOG_ERROR("Failed to send continuous command through comms module");
+                    } else {
+                        SPDLOG_INFO("Sent continuous command through comms module");
+                    }
                 }
             }
         }
 
-        //! If the comms module is in continuous mode, attempt to get the latest response
-        //! and send it through UDP
         if(comms.isContinousMode()){
             std::string res;
             if(comms.getContinousResponse(res)){
