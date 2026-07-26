@@ -38,6 +38,24 @@ cd UltraGPS-Ground
 git submodule update --init --recursive
 ```
 
+## Quick start
+
+You don't need to build anything to run the program — each release ships a
+prebuilt Debian package. Download the latest `.deb` from the
+**[Releases page](https://github.com/Imperious22M/UltraGPS-Ground/releases/latest)**
+and install it:
+
+```bash
+sudo dpkg -i ultragps-xy_*_amd64.deb
+```
+
+This installs `UltraGpsXY` to `/usr/bin` (on your `PATH`) and pulls in its
+runtime dependencies automatically. Then run it:
+
+```bash
+UltraGpsXY                 # see `UltraGpsXY --help` for options
+```
+
 ## Using the build script
 
 `build.sh` is the single entry point for building, packaging, cleaning, and
@@ -84,7 +102,7 @@ Common options (see the docs or `UltraGpsXY --help` for the full list):
 ./build/UltraGpsXY --net-device eth0 --tcp-port 9100 --udp-port 9101 --verbose
 ```
 
-### Building and installing the Debian package
+### Building and installing the Debian package (from a cloned repository)
 
 ```bash
 ./build.sh deb              # → ./build/ultragps-xy_<version>_amd64.deb
@@ -103,54 +121,6 @@ its runtime dependencies (`libc6`, `libstdc++6`, `libgcc-s1`) automatically.
 ./build.sh clean            # removes ./build/
 ```
 
-### Releasing a version
+## Developer's Guide
 
-Released versions live in the repository's **Releases** tab, each with the
-`.deb` package attached. The `release` branch is the stable snapshot of the most
-recent release.
-
-Releases are cut by pushing a **version tag** (`vX.Y`). Pushing the tag triggers
-the `Release` workflow, which builds the `.deb` and publishes a GitHub Release
-with it attached.
-
-To cut a release:
-
-1. Bump the version in `CMakeLists.txt` so it matches the tag you intend to
-   push — `project(UltraGpsXY VERSION X.Y ...)`. The release workflow **fails**
-   if the tag and the package version disagree, so this must be done first.
-2. Get that commit onto the `release` branch (it is the stable snapshot):
-
-   ```bash
-   git checkout release
-   git merge --ff-only <your-dev-branch>
-   git push origin release
-   ```
-
-3. Tag the release commit and push the tag:
-
-   ```bash
-   git tag vX.Y            # e.g. v1.0 — must match project(VERSION) above
-   git push origin vX.Y
-   ```
-
-The workflow then builds `ultragps-xy_X.Y_amd64.deb` and attaches it to a new
-release named "UltraGPS Ground Station vX.Y", with auto-generated notes. Users
-can then download and install it:
-
-```bash
-sudo dpkg -i ultragps-xy_X.Y_amd64.deb
-```
-
-### Previewing the documentation
-
-The docs are built with [MkDocs](https://www.mkdocs.org/). To preview them
-locally without pushing:
-
-```bash
-pip install -r docs/requirements.txt    # one-time: install MkDocs
-./build.sh docs                         # live preview at http://127.0.0.1:8000
-./build.sh docs-build                   # render static site into ./site/
-```
-
-Pushing documentation changes to the `release` branch automatically rebuilds
-and republishes the site via GitHub Actions.
+See the **[Developer's Guide](https://imperious22m.github.io/UltraGPS-Ground/developer-guide/)** in the documentation for more details.

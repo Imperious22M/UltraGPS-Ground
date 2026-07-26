@@ -10,18 +10,16 @@ command-line flags. It is kept as a reference/backup of a known-good receiver
 setup. If TOML-driven configuration is wired up later, `tomlplusplus` is already
 linked in.
 
-## Packaging inside a Dropbox folder
+## Packaging builds in an isolated directory
 
-Building the `.deb` in place fails when the repository lives in a Dropbox-synced
-directory. During packaging, `dpkg-shlibdeps` creates and deletes a transient
-`debian/` control directory; Dropbox's sync daemon catches it mid-flight and
-renames it (e.g. `debian (Case Conflict)`), and that phantom folder leaks into
-the package's payload.
-
-The fix — implemented in `build.sh deb` — is to build the package in a
-temporary directory under `/tmp`, outside the synced tree, and copy only the
-finished `.deb` back in. Plain compilation is unaffected because it does not
-create/delete files as rapidly.
+`build.sh deb` builds the package in a temporary directory under `/tmp` and
+copies only the finished `.deb` back into `./build/`, instead of packaging in
+place. During packaging, `dpkg-shlibdeps` rapidly creates and deletes a
+transient `debian/` control directory; building in an isolated location keeps
+that transient tree from being disturbed by external processes that watch or
+modify files in the working tree, which can otherwise corrupt the resulting
+package. Plain compilation is unaffected because it does not create and delete
+files as rapidly.
 
 ## Logging model
 

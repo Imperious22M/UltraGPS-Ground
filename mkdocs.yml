@@ -19,6 +19,7 @@ nav:
   - Architecture: architecture.md
   - Installation: installation.md
   - Usage: usage.md
+  - Developer's Guide: developer-guide.md
   - Notes: notes.md
 
 markdown_extensions:

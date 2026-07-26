@@ -65,9 +65,8 @@ This installs the binary to `/usr/bin/UltraGpsXY`, so it lands on your `PATH`.
 Runtime dependencies (`libc6`, `libstdc++6`, `libgcc-s1`) are resolved
 automatically by the package.
 
-!!! warning "Packaging inside a Dropbox folder"
+!!! note "Packaging builds in an isolated directory"
     The `deb` target intentionally builds in a temporary directory under `/tmp`
-    rather than in place. This repository lives in a Dropbox-synced folder, and
-    Dropbox's sync daemon races with the transient files `dpkg-shlibdeps`
-    creates while packaging, corrupting the resulting `.deb`. Plain compilation
-    is unaffected. See [Notes](notes.md) for details.
+    rather than in place, then copies the finished `.deb` into `./build/`. This
+    isolates the transient files `dpkg-shlibdeps` creates while packaging from
+    the working tree. See [Notes](notes.md) for details.

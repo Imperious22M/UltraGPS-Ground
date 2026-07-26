@@ -24,8 +24,8 @@ Usage: ./build.sh <command> [options]
 
 Commands:
   build        Compile the UltraGpsXY binary into ./build
-  deb          Build the .deb package (packaged in /tmp to avoid Dropbox
-               corruption, then copied into ./build)
+  deb          Build the .deb package in an isolated /tmp dir, then copy
+               it into ./build
   clean        Remove the ./build directory (equivalent to 'make clean')
   docs         Preview the documentation locally with live reload
                (mkdocs serve — http://127.0.0.1:8000, Ctrl-C to stop)
