@@ -20,6 +20,9 @@ It is a single C++17 executable. The third-party libraries (`spdlog`,
 `tomlplusplus`, `argparse`) are vendored as git submodules and statically
 linked, so the installed binary has no third-party runtime dependencies.
 
+An Arduino Uno running the ground station program should be plugged in to a USB 
+port of the PC running this program before the program is initiated.
+
 See the [full documentation](https://imperious22m.github.io/UltraGPS-Ground/)
 for architecture, usage, and design notes.
 
