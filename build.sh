@@ -14,6 +14,7 @@ set -euo pipefail
 # Project root
 PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="$PROJECT_DIR/build"
+SITE_DIR="$PROJECT_DIR/site"
 
 VERBOSE=OFF
 
@@ -26,6 +27,9 @@ Commands:
   deb          Build the .deb package (packaged in /tmp to avoid Dropbox
                corruption, then copied into ./build)
   clean        Remove the ./build directory (equivalent to 'make clean')
+  docs         Preview the documentation locally with live reload
+               (mkdocs serve — http://127.0.0.1:8000, Ctrl-C to stop)
+  docs-build   Build the static documentation site into ./site
 
 Options:
   -v, --verbose   Configure with -DVERBOSE_LOGGING=ON (build command only)
@@ -36,7 +40,20 @@ Examples:
   ./build.sh build --verbose  # debug build with SPDLOG macros active
   ./build.sh deb              # ./build/ultragps-xy_<version>_amd64.deb
   ./build.sh clean            # wipe ./build
+  ./build.sh docs             # live-preview docs without pushing
+  ./build.sh docs-build       # render docs to ./site
 EOF
+}
+
+# Ensure mkdocs is available before running a docs command; print an install
+# hint otherwise.
+require_mkdocs() {
+    if ! command -v mkdocs >/dev/null 2>&1; then
+        echo "error: 'mkdocs' is not installed." >&2
+        echo "Install the documentation dependencies with:" >&2
+        echo "    pip install -r docs/requirements.txt" >&2
+        exit 1
+    fi
 }
 
 cmd_build() {
@@ -74,6 +91,19 @@ cmd_deb() {
     dpkg-deb -I "$deb" | sed -n '/Package:/,/Description:/p'
 }
 
+cmd_docs() {
+    require_mkdocs
+    echo ">> Serving docs at http://127.0.0.1:8000  (Ctrl-C to stop) ..."
+    ( cd "$PROJECT_DIR" && mkdocs serve )
+}
+
+cmd_docs_build() {
+    require_mkdocs
+    echo ">> Building static docs into $SITE_DIR ..."
+    ( cd "$PROJECT_DIR" && mkdocs build --site-dir "$SITE_DIR" )
+    echo ">> Done: $SITE_DIR/index.html"
+}
+
 cmd_clean() {
     if [[ -d "$BUILD_DIR" ]]; then
         echo ">> Removing $BUILD_DIR ..."
@@ -88,7 +118,7 @@ cmd_clean() {
 COMMAND=""
 for arg in "$@"; do
     case "$arg" in
-        build|deb|clean)  COMMAND="$arg" ;;
+        build|deb|clean|docs|docs-build)  COMMAND="$arg" ;;
         -v|--verbose)     VERBOSE=ON ;;
         -h|--help)        usage; exit 0 ;;
         *) echo "Unknown argument: $arg" >&2; echo >&2; usage >&2; exit 1 ;;
@@ -96,8 +126,10 @@ for arg in "$@"; do
 done
 
 case "$COMMAND" in
-    build) cmd_build ;;
-    deb)   cmd_deb ;;
-    clean) cmd_clean ;;
-    "")    usage >&2; exit 1 ;;
+    build)      cmd_build ;;
+    deb)        cmd_deb ;;
+    clean)      cmd_clean ;;
+    docs)       cmd_docs ;;
+    docs-build) cmd_docs_build ;;
+    "")         usage >&2; exit 1 ;;
 esac

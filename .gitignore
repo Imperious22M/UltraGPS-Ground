@@ -1,3 +1,5 @@
 .vscode
 .cache
 build
+# MkDocs rendered output (`./build.sh docs-build`)
+site
