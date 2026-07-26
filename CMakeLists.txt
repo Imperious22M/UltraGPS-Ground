@@ -81,5 +81,37 @@ target_link_libraries(UltraGpsXY PRIVATE tomlplusplus::tomlplusplus)
 # Link the argparse library to the target
 target_link_libraries(UltraGpsXY PRIVATE argparse::argparse)
 
-# TODO
-# Add Linux dpkg and binary support
+# ---------------------------------------------------------------------------
+# Installation
+#
+#   Installs the ground-station binary to /usr/bin so it is on the default
+#   PATH. The third-party libraries (spdlog, toml++, argparse) are compiled
+#   in statically, so nothing else needs to be shipped.
+# ---------------------------------------------------------------------------
+install(TARGETS UltraGpsXY
+    RUNTIME DESTINATION bin
+)
+
+# ---------------------------------------------------------------------------
+# Debian (.deb) packaging via CPack
+#
+#   Build the package with:
+#       cmake -S . -B build
+#       cmake --build build
+#       cpack --config build/CPackConfig.cmake -G DEB
+#   producing e.g. ultragps-xy_1.0_amd64.deb in the build directory.
+# ---------------------------------------------------------------------------
+set(CPACK_GENERATOR "DEB")
+set(CPACK_PACKAGE_NAME "ultragps-xy")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "${PROJECT_DESCRIPTION}")
+set(CPACK_PACKAGE_CONTACT "St. Mary's University UltraGPS <exdeeee9981@gmail.com>")
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "${CPACK_PACKAGE_CONTACT}")
+set(CPACK_DEBIAN_PACKAGE_SECTION "science")
+set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
+
+# Auto-resolve runtime dependencies (libc6, libstdc++6, libgcc-s1, ...) from
+# the linked binary rather than hard-coding them.
+set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+
+include(CPack)
