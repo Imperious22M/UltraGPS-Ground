@@ -1,0 +1,36 @@
+site_name: UltraGPS Ground Station
+site_description: >-
+  Documentation for the St. Mary's University UltraGPS ground-station
+  control program.
+# Project-page URL on GitHub Pages: https://<user>.github.io/<repo>/
+site_url: https://imperious22m.github.io/UltraGPS-Ground/
+
+repo_url: https://github.com/Imperious22M/UltraGPS-Ground
+repo_name: Imperious22M/UltraGPS-Ground
+
+# Built-in theme — no extra pip packages required. To upgrade to Material
+# (search, nicer nav, dark mode) add `mkdocs-material` to docs/requirements.txt
+# and change this to `name: material`.
+theme:
+  name: readthedocs
+
+nav:
+  - Home: index.md
+  - Architecture: architecture.md
+  - Installation: installation.md
+  - Usage: usage.md
+  - Notes: notes.md
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+
+# requirements.txt lives in docs/ for convenience but is a build input, not a
+# page — keep it out of the published site.
+exclude_docs: |
+  requirements.txt
+
+# Fail the build on broken internal links / missing nav pages so CI catches
+# documentation mistakes instead of silently shipping them.
+strict: true
