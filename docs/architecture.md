@@ -63,9 +63,9 @@ The loop in `main()` runs continuously and, on each pass:
 Logging uses `spdlog`. The `SPDLOG_*` macros are gated at compile time by
 `SPDLOG_ACTIVE_LEVEL`:
 
-- **Default build** — the macros are compiled out entirely (zero overhead).
+- **Default build** — the macros are compiled out entirely.
   Direct calls such as `spdlog::info()` (banner, module-init messages) are
-  always present.
+  always present, regardless of compilation debug level.
 - **`-DVERBOSE_LOGGING=ON`** — all `SPDLOG_*` macros are active at DEBUG level
   and the build switches to a debug configuration. See
   [Installation](installation.md) and [Usage](usage.md).

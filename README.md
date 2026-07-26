@@ -94,16 +94,51 @@ sudo dpkg -i build/ultragps-xy_*_amd64.deb
 This installs the binary to `/usr/bin/UltraGpsXY` (on your `PATH`) and resolves
 its runtime dependencies (`libc6`, `libstdc++6`, `libgcc-s1`) automatically.
 
-> **Note — packaging inside Dropbox.** The `deb` target builds in a temporary
-> directory under `/tmp` rather than in place. This repository lives in a
-> Dropbox-synced folder, and Dropbox's sync daemon races with the transient
-> files `dpkg-shlibdeps` creates while packaging, corrupting the resulting
-> `.deb`. Building in `/tmp` sidesteps this. Plain compilation is unaffected.
+> **Note** The `deb` target builds in a temporary
+> directory under `/tmp` rather than in place.
 
 ### Cleaning
 
 ```bash
 ./build.sh clean            # removes ./build/
+```
+
+### Releasing a version
+
+Released versions live in the repository's **Releases** tab, each with the
+`.deb` package attached. The `release` branch is the stable snapshot of the most
+recent release.
+
+Releases are cut by pushing a **version tag** (`vX.Y`). Pushing the tag triggers
+the `Release` workflow, which builds the `.deb` and publishes a GitHub Release
+with it attached.
+
+To cut a release:
+
+1. Bump the version in `CMakeLists.txt` so it matches the tag you intend to
+   push — `project(UltraGpsXY VERSION X.Y ...)`. The release workflow **fails**
+   if the tag and the package version disagree, so this must be done first.
+2. Get that commit onto the `release` branch (it is the stable snapshot):
+
+   ```bash
+   git checkout release
+   git merge --ff-only <your-dev-branch>
+   git push origin release
+   ```
+
+3. Tag the release commit and push the tag:
+
+   ```bash
+   git tag vX.Y            # e.g. v1.0 — must match project(VERSION) above
+   git push origin vX.Y
+   ```
+
+The workflow then builds `ultragps-xy_X.Y_amd64.deb` and attaches it to a new
+release named "UltraGPS Ground Station vX.Y", with auto-generated notes. Users
+can then download and install it:
+
+```bash
+sudo dpkg -i ultragps-xy_X.Y_amd64.deb
 ```
 
 ### Previewing the documentation
@@ -112,11 +147,10 @@ The docs are built with [MkDocs](https://www.mkdocs.org/). To preview them
 locally without pushing:
 
 ```bash
-pip install -r docs/requirements.txt   # one-time: install MkDocs
+pip install -r docs/requirements.txt    # one-time: install MkDocs
 ./build.sh docs                         # live preview at http://127.0.0.1:8000
 ./build.sh docs-build                   # render static site into ./site/
 ```
 
 Pushing documentation changes to the `release` branch automatically rebuilds
-and republishes the site to
-<https://imperious22m.github.io/UltraGPS-Ground/> via GitHub Actions.
+and republishes the site via GitHub Actions.

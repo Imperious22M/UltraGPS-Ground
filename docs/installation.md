@@ -1,7 +1,21 @@
 # Installation
 
-There are two ways to get `UltraGpsXY` onto a machine: build it from source, or
-install the prebuilt Debian package.
+There are two ways to get `UltraGpsXY` onto a machine: install the prebuilt
+Debian package from a release, or build it from source.
+
+## Install from a release (recommended)
+
+Each tagged version is published on the
+[Releases page](https://github.com/Imperious22M/UltraGPS-Ground/releases) with
+the `.deb` package attached. Download the latest `ultragps-xy_<version>_amd64.deb`
+and install it:
+
+```bash
+sudo dpkg -i ultragps-xy_*_amd64.deb
+```
+
+This installs the binary to `/usr/bin/UltraGpsXY` (on your `PATH`) and pulls in
+its runtime dependencies (`libc6`, `libstdc++6`, `libgcc-s1`) automatically.
 
 ## Prerequisites
 
