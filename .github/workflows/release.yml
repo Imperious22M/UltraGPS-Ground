@@ -18,6 +18,7 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 # gh release create needs write access to create the release and upload assets.
 permissions:
