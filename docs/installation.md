@@ -42,9 +42,9 @@ git submodule update --init --recursive
 !!! note "Building without the helper script"
     `build.sh` just wraps CMake:
 
-    ```bash
+    ```
     cmake -S . -B build
-    cmake --build build -j"$(nproc)"
+    cmake --build build -j "$(nproc)"
     ```
 
 ## Debian package (.deb)
@@ -69,4 +69,4 @@ automatically by the package.
     The `deb` target intentionally builds in a temporary directory under `/tmp`
     rather than in place, then copies the finished `.deb` into `./build/`. This
     isolates the transient files `dpkg-shlibdeps` creates while packaging from
-    the working tree. See [Notes](notes.md) for details.
+    the working tree.

@@ -1,14 +1,14 @@
 cmake_minimum_required(VERSION 3.15...4.0)
 
 project(UltraGpsXY VERSION 1.0
-                    DESCRIPTION "Decode X and Y cords from UltraGPS"
+                    DESCRIPTION "UltraGPS XY Ground Station, exposes the base-station to commands from the network"
                     LANGUAGES CXX)
 
 # ---------------------------------------------------------------------------
 # Build-mode option
 #
 #   Default (no flag):  SPDLOG_INFO / SPDLOG_WARN / SPDLOG_ERROR macros are
-#                       compiled out entirely — zero overhead in production.
+#                       compiled out entirely.
 #                       spdlog::info() / spdlog::error() direct calls (banner,
 #                       module-init messages) are always present regardless.
 #
@@ -64,8 +64,8 @@ target_include_directories(UltraGpsXY PRIVATE CommsModule)
 target_link_libraries(UltraGpsXY PRIVATE spdlog::spdlog)
 
 # SPDLOG_ACTIVE_LEVEL gates the SPDLOG_xxx macros at compile time.
-# SPDLOG_LEVEL_OFF  → every SPDLOG_xxx macro expands to nothing (no-op).
-# SPDLOG_LEVEL_DEBUG → all macros are active down to DEBUG severity.
+# SPDLOG_LEVEL_OFF  -> every SPDLOG_xxx macro expands to nothing (no-op).
+# SPDLOG_LEVEL_DEBUG -> all macros are active down to DEBUG severity.
 # Direct calls such as spdlog::info() are unaffected and always compiled in.
 target_compile_definitions(UltraGpsXY PRIVATE
     SPDLOG_ACTIVE_LEVEL=${SPDLOG_ACTIVE_LEVEL_VALUE}
@@ -99,13 +99,13 @@ install(TARGETS UltraGpsXY
 #       cmake -S . -B build
 #       cmake --build build
 #       cpack --config build/CPackConfig.cmake -G DEB
-#   producing e.g. ultragps-xy_1.0_amd64.deb in the build directory.
+#   producing e.g. ultragps-xy_<version>_amd64.deb in the build directory.
 # ---------------------------------------------------------------------------
 set(CPACK_GENERATOR "DEB")
 set(CPACK_PACKAGE_NAME "ultragps-xy")
 set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "${PROJECT_DESCRIPTION}")
-set(CPACK_PACKAGE_CONTACT "St. Mary's University UltraGPS <exdeeee9981@gmail.com>")
+set(CPACK_PACKAGE_CONTACT "Please contact the engineering department at St. Mary's University")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "${CPACK_PACKAGE_CONTACT}")
 set(CPACK_DEBIAN_PACKAGE_SECTION "science")
 set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
