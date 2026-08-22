@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://imperious22m.github.io/UltraGPS-Ground/developer-guide/" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Developer's Guide - UltraGPS Ground Station</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Developer\u0027s Guide";
+        var mkdocs_page_input_path = "developer-guide.md";
+        var mkdocs_page_url = "/UltraGPS-Ground/developer-guide/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> UltraGPS Ground Station
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../architecture/">Architecture</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../installation/">Installation</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../usage/">Usage</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Developer's Guide</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#requirements">Requirements</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#installing-a-prebuilt-release">Installing a prebuilt release</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#using-the-build-script">Using the build script</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#commands">Commands</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#options">Options</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#compiling-the-program">Compiling the program</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#building-and-installing-the-debian-package">Building and installing the Debian package</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#cleaning">Cleaning</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#previewing-the-documentation">Previewing the documentation</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#releasing-a-version">Releasing a version</a>
+    </li>
+    </ul>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">UltraGPS Ground Station</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Developer's Guide</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/Imperious22M/UltraGPS-Ground/edit/master/docs/developer-guide.md">Edit on Imperious22M/UltraGPS-Ground</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="developers-guide">Developer's Guide<a class="headerlink" href="#developers-guide" title="Permanent link">&para;</a></h1>
+<p>A self-contained reference for developers who <strong>fork the repository</strong> and need
+to work with the project's tooling — building, packaging, previewing the
+documentation, and cutting releases. Everything needed is on this page.</p>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p><code>UltraGpsXY</code> is a single C++17 executable that runs on the ground-station host
+and bridges the positioning hardware to the network:</p>
+<ul>
+<li>Maintains a <strong>serial link</strong> to the base-station Arduino (default
+  <code>/dev/ttyACM0</code> @ 38400 bps) via the Comms/Serial modules.</li>
+<li>Runs a <strong>TCP command server</strong> (default port <code>9000</code>): network clients send
+  commands, which are validated and forwarded to the Arduino, and the response
+  is returned to the client.</li>
+<li>Runs a <strong>UDP data stream</strong> (default port <code>9001</code>): while in continuous mode,
+  live position data from the Arduino is streamed out to clients.</li>
+</ul>
+<p>The third-party libraries (<code>spdlog</code>, <code>tomlplusplus</code>, <code>argparse</code>) are vendored as
+git submodules and statically linked, so the installed binary has no
+third-party runtime dependencies.</p>
+<h2 id="requirements">Requirements<a class="headerlink" href="#requirements" title="Permanent link">&para;</a></h2>
+<ul>
+<li>A C++17 compiler (GCC or Clang) and CMake ≥ 3.15</li>
+<li><code>git</code> (the third-party libraries are git submodules)</li>
+<li><code>dpkg</code>/<code>cpack</code> — only needed to build the <code>.deb</code> package</li>
+<li>Python 3 with <code>pip</code> — only needed to build/preview the documentation</li>
+</ul>
+<p>Clone with submodules:</p>
+<pre><code class="language-bash">git clone --recurse-submodules https://github.com/Imperious22M/UltraGPS-Ground.git
+cd UltraGPS-Ground
+# If you already cloned without --recurse-submodules:
+git submodule update --init --recursive
+</code></pre>
+<h2 id="installing-a-prebuilt-release">Installing a prebuilt release<a class="headerlink" href="#installing-a-prebuilt-release" title="Permanent link">&para;</a></h2>
+<p>You don't need to build anything to run the program — each release ships a
+prebuilt Debian package. Download the latest <code>.deb</code> from the
+<a href="https://github.com/Imperious22M/UltraGPS-Ground/releases/latest">Releases page</a>
+and install it:</p>
+<pre><code class="language-bash">sudo dpkg -i ultragps-xy_*_amd64.deb
+</code></pre>
+<p>This installs <code>UltraGpsXY</code> to <code>/usr/bin</code> (on your <code>PATH</code>) and pulls in its
+runtime dependencies automatically.</p>
+<h2 id="using-the-build-script">Using the build script<a class="headerlink" href="#using-the-build-script" title="Permanent link">&para;</a></h2>
+<p><code>build.sh</code> is the single entry point for building, packaging, cleaning, and
+previewing the docs. Run it from the repository root:</p>
+<pre><code class="language-bash">./build.sh &lt;command&gt; [options]
+</code></pre>
+<h3 id="commands">Commands<a class="headerlink" href="#commands" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>build</code></td>
+<td>Compile the <code>UltraGpsXY</code> binary into <code>./build/</code></td>
+</tr>
+<tr>
+<td><code>deb</code></td>
+<td>Build the installable Debian package into <code>./build/</code></td>
+</tr>
+<tr>
+<td><code>clean</code></td>
+<td>Remove the <code>./build/</code> directory (like <code>make clean</code>)</td>
+</tr>
+<tr>
+<td><code>docs</code></td>
+<td>Preview the documentation locally with live reload</td>
+</tr>
+<tr>
+<td><code>docs-build</code></td>
+<td>Render the static documentation site into <code>./site/</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="options">Options<a class="headerlink" href="#options" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Applies to</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-v</code>, <code>--verbose</code></td>
+<td><code>build</code></td>
+<td>Configure with <code>-DVERBOSE_LOGGING=ON</code> (debug build, <code>SPDLOG_*</code> macros active)</td>
+</tr>
+<tr>
+<td><code>-h</code>, <code>--help</code></td>
+<td>—</td>
+<td>Show usage</td>
+</tr>
+</tbody>
+</table>
+<h3 id="compiling-the-program">Compiling the program<a class="headerlink" href="#compiling-the-program" title="Permanent link">&para;</a></h3>
+<pre><code class="language-bash">./build.sh build            # optimised binary → ./build/UltraGpsXY
+./build.sh build --verbose  # debug build with verbose logging compiled in
+</code></pre>
+<p>Run it:</p>
+<pre><code class="language-bash">./build/UltraGpsXY          # or just `UltraGpsXY` if installed via the .deb
+</code></pre>
+<p>Common options (see the <a href="../usage/">Usage</a> page or <code>UltraGpsXY --help</code> for the
+full list):</p>
+<pre><code class="language-bash">./build/UltraGpsXY --serial-port /dev/ttyUSB0 --baud-rate 115200
+./build/UltraGpsXY --net-device eth0 --tcp-port 9100 --udp-port 9101 --verbose
+</code></pre>
+<h3 id="building-and-installing-the-debian-package">Building and installing the Debian package<a class="headerlink" href="#building-and-installing-the-debian-package" title="Permanent link">&para;</a></h3>
+<pre><code class="language-bash">./build.sh deb              # → ./build/ultragps-xy_&lt;version&gt;_amd64.deb
+sudo dpkg -i build/ultragps-xy_*_amd64.deb
+</code></pre>
+<p>This installs the binary to <code>/usr/bin/UltraGpsXY</code> (on your <code>PATH</code>) and resolves
+its runtime dependencies (<code>libc6</code>, <code>libstdc++6</code>, <code>libgcc-s1</code>) automatically.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The <code>deb</code> target builds in a temporary directory under <code>/tmp</code> rather than in
+place, then copies the finished <code>.deb</code> into <code>./build/</code>. This isolates the
+transient files <code>dpkg-shlibdeps</code> creates while packaging from the working
+tree; plain compilation is unaffected.</p>
+</div>
+<h3 id="cleaning">Cleaning<a class="headerlink" href="#cleaning" title="Permanent link">&para;</a></h3>
+<pre><code class="language-bash">./build.sh clean            # removes ./build/
+</code></pre>
+<h2 id="previewing-the-documentation">Previewing the documentation<a class="headerlink" href="#previewing-the-documentation" title="Permanent link">&para;</a></h2>
+<p>The docs are built with <a href="https://www.mkdocs.org/">MkDocs</a>. To preview them
+locally without pushing:</p>
+<pre><code class="language-bash">pip install -r docs/requirements.txt    # one-time: install MkDocs
+./build.sh docs                         # live preview at http://127.0.0.1:8000
+./build.sh docs-build                   # render static site into ./site/
+</code></pre>
+<p>Pushing documentation changes to the <code>release</code> branch automatically rebuilds
+and republishes the site via GitHub Actions.</p>
+<h2 id="releasing-a-version">Releasing a version<a class="headerlink" href="#releasing-a-version" title="Permanent link">&para;</a></h2>
+<p>Released versions live in the repository's <strong>Releases</strong> tab, each with the
+<code>.deb</code> package attached. The <code>release</code> branch is the stable snapshot of the most
+recent release.</p>
+<p>Releases are cut by pushing a <strong>version tag</strong> (<code>vX.Y</code>). Pushing the tag triggers
+the <code>Release</code> workflow, which builds the <code>.deb</code> and publishes a GitHub Release
+with it attached.</p>
+<p>To cut a release:</p>
+<ol>
+<li>Bump the version in <code>CMakeLists.txt</code> so it matches the tag you intend to
+   push — <code>project(UltraGpsXY VERSION X.Y ...)</code>. The release workflow <strong>fails</strong>
+   if the tag and the package version disagree, so this must be done first.</li>
+<li>Push that commit onto the <code>release</code> branch:</li>
+</ol>
+<pre><code class="language-bash">git checkout release
+git merge --ff-only &lt;your-dev-branch&gt;
+git push origin release
+</code></pre>
+<ol>
+<li>Tag the release commit and push the tag:</li>
+</ol>
+<pre><code class="language-bash">git tag vX.Y            # e.g. v1.0 — must match project(VERSION) above
+git push origin vX.Y
+</code></pre>
+<p>The workflow then builds <code>ultragps-xy_X.Y_amd64.deb</code> and attaches it to a new
+release named "UltraGPS Ground Station vX.Y", with auto-generated notes. Users
+can then download and install it:</p>
+<pre><code class="language-bash">sudo dpkg -i ultragps-xy_X.Y_amd64.deb
+</code></pre>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../usage/" class="btn btn-neutral float-left" title="Usage"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/Imperious22M/UltraGPS-Ground" class="fa fa-code-fork" style="color: #fcfcfc"> Imperious22M/UltraGPS-Ground</a>
+        </span>
+    
+    
+      <span><a href="../usage/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

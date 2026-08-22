@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://imperious22m.github.io/UltraGPS-Ground/architecture/" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Architecture - UltraGPS Ground Station</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Architecture";
+        var mkdocs_page_input_path = "architecture.md";
+        var mkdocs_page_url = "/UltraGPS-Ground/architecture/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> UltraGPS Ground Station
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Architecture</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#components">Components</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#third-party-libraries">Third-party libraries</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#data-flow">Data flow</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#control-loop">Control loop</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#logging">Logging</a>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../installation/">Installation</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../usage/">Usage</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../developer-guide/">Developer's Guide</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">UltraGPS Ground Station</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Architecture</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/Imperious22M/UltraGPS-Ground/edit/master/docs/architecture.md">Edit on Imperious22M/UltraGPS-Ground</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h1>
+<p><code>UltraGpsXY</code> is a single C++17 executable built with CMake. It is organised
+around a <code>main.cpp</code> control loop and three modules, plus three third-party
+libraries that are compiled in statically.</p>
+<h2 id="components">Components<a class="headerlink" href="#components" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Location</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Control loop</td>
+<td><code>main.cpp</code></td>
+<td>Argument parsing, module setup, banner, main event loop</td>
+</tr>
+<tr>
+<td>Comms module</td>
+<td><code>CommsModule/</code></td>
+<td>Command validation and framing over the serial link</td>
+</tr>
+<tr>
+<td>Serial module</td>
+<td><code>SerialModule/</code></td>
+<td>Low-level POSIX serial (termios) I/O to the Arduino</td>
+</tr>
+<tr>
+<td>Server module</td>
+<td><code>ServerModule/</code></td>
+<td>TCP command socket + UDP continuous data stream</td>
+</tr>
+</tbody>
+</table>
+<h3 id="third-party-libraries">Third-party libraries<a class="headerlink" href="#third-party-libraries" title="Permanent link">&para;</a></h3>
+<p>These are vendored as git submodules and <strong>statically linked</strong>, so the shipped
+binary has no third-party runtime dependencies:</p>
+<ul>
+<li><a href="https://github.com/gabime/spdlog"><code>spdlog</code></a> — logging.</li>
+<li><a href="https://github.com/marzer/tomlplusplus"><code>tomlplusplus</code></a> — TOML parsing.</li>
+<li><a href="https://github.com/p-ranav/argparse"><code>argparse</code></a> — command-line parsing.</li>
+</ul>
+<h2 id="data-flow">Data flow<a class="headerlink" href="#data-flow" title="Permanent link">&para;</a></h2>
+<pre><code>   Base-station Arduino
+          │  (USB serial, e.g. /dev/ttyACM0 @ 38400)
+          ▼
+   ┌──────────────┐        ┌──────────────┐
+   │ SerialModule │◄──────►│ CommsModule  │
+   └──────────────┘        └──────┬───────┘
+                                  │
+                          ┌───────▼────────┐
+                          │  main() loop   │
+                          └───────┬────────┘
+                                  │
+                          ┌───────▼────────┐
+                          │ ServerModule   │
+                          └───────┬────────┘
+             TCP commands (9000)  │  UDP stream (9001)
+                                  ▼
+                            Network clients
+</code></pre>
+<h2 id="control-loop">Control loop<a class="headerlink" href="#control-loop" title="Permanent link">&para;</a></h2>
+<p>The loop in <code>main()</code> runs continuously and, on each pass:</p>
+<ol>
+<li><strong>Receives TCP commands</strong> from network clients via the Server module.</li>
+<li><strong>Validates</strong> each command through the Comms module, discarding anything
+   invalid.</li>
+<li><strong>Dispatches</strong> by command type:<ul>
+<li><em>Normal</em> commands are sent to the Arduino and the response is returned to
+  the requesting client over TCP.</li>
+<li><em>Continuous</em> commands switch the system into streaming mode.</li>
+</ul>
+</li>
+<li><strong>Streams data</strong>: while in continuous mode, serial data from the Arduino is
+   pushed out to clients over UDP.</li>
+</ol>
+<h2 id="logging">Logging<a class="headerlink" href="#logging" title="Permanent link">&para;</a></h2>
+<p>Logging uses <code>spdlog</code>. The <code>SPDLOG_*</code> macros are gated at compile time by
+<code>SPDLOG_ACTIVE_LEVEL</code>:</p>
+<ul>
+<li><strong>Default build</strong> — the macros are compiled out entirely.
+  Direct calls such as <code>spdlog::info()</code> (banner, module-init messages) are
+  always present, regardless of compilation debug level.</li>
+<li><strong><code>-DVERBOSE_LOGGING=ON</code></strong> — all <code>SPDLOG_*</code> macros are active at DEBUG level
+  and the build switches to a debug configuration. See
+  <a href="../installation/">Installation</a> and <a href="../usage/">Usage</a>.</li>
+</ul>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href=".." class="btn btn-neutral float-left" title="Home"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../installation/" class="btn btn-neutral float-right" title="Installation">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/Imperious22M/UltraGPS-Ground" class="fa fa-code-fork" style="color: #fcfcfc"> Imperious22M/UltraGPS-Ground</a>
+        </span>
+    
+    
+      <span><a href=".." style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../installation/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
