@@ -48,6 +48,8 @@ UltraGpsXY --net-device eth0 --tcp-port 9100 --udp-port 9101 --verbose
 
 !!! note "Runtime verbose vs. compile-time verbose"
     `--verbose` raises the **runtime** log level to debug for direct `spdlog`
-    calls. The `SPDLOG_*` macros (fine-grained loop tracing) are separate and
-    are only compiled in when the binary is built with `-DVERBOSE_LOGGING=ON`
-    (see [Installation](installation.md)).
+    calls. In any build this prints every message the ground station receives:
+    TCP commands from clients, serial responses to normal commands, and serial
+    continuous-mode data. The `SPDLOG_*` macros (fine-grained loop tracing) are
+    separate and are only compiled in when the binary is built with
+    `-DVERBOSE_LOGGING=ON` (see [Installation](installation.md)).

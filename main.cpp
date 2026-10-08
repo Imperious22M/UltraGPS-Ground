@@ -170,7 +170,7 @@ int main(int argc, char *argv[]) {
         std::string cmd;
 
         if(server.receiveCommand(cmd)){
-            SPDLOG_INFO("Received TCP command: {}", cmd);
+            spdlog::debug("Received TCP command: {}", cmd);
 
             if(!comms.isValidCommand(cmd)){
                 SPDLOG_WARN("Discarding invalid command: {}", comms.extractCommand(cmd));
@@ -184,7 +184,7 @@ int main(int argc, char *argv[]) {
                         SPDLOG_ERROR("Failed to send normal command through comms module");
                     }
                     if(!res.empty()){
-                        SPDLOG_INFO("Received response for normal command: {}", res);
+                        spdlog::debug("Received SERIAL response for normal command: {}", res);
                         if(!server.sendCommand(res)){
                             SPDLOG_ERROR("Failed to send response through server module");
                         } else {
@@ -206,7 +206,7 @@ int main(int argc, char *argv[]) {
         if(comms.isContinousMode()){
             std::string res;
             if(comms.getContinousResponse(res)){
-                SPDLOG_INFO("Received SERIAL continuous data: {}", res);
+                spdlog::debug("Received SERIAL continuous data: {}", res);
                 if(!server.sendContinuous(res)){
                     SPDLOG_ERROR("Failed to send continuous data through server module");
                 } else {
