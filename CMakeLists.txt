@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15...4.0)
 
-project(UltraGpsXY VERSION 1.0
+project(UltraGpsXY VERSION 1.1
                     DESCRIPTION "UltraGPS XY Ground Station, exposes the base-station to commands from the network"
                     LANGUAGES CXX)
 
