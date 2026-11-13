@@ -21,6 +21,10 @@ its runtime dependencies (`libc6`, `libstdc++6`, `libgcc-s1`) automatically.
 
 - A C++17 compiler (GCC or Clang) and CMake ≥ 3.15
 - `git` (the third-party libraries are git submodules)
+- For the terminal UI: `sudo apt install pkg-config libunistring-dev libncurses-dev zlib1g-dev`.
+  The first build downloads notcurses, so it needs network access. Without
+  these packages the build continues headless-only; `./build.sh build --no-tui`
+  skips the TUI explicitly.
 
 ## Build from source
 

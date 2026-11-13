@@ -1,3 +1,10 @@
+//! @file serverModule.cpp
+//! @brief ServerModule implementation: socket setup, the worker threads and the
+//!        TCP/UDP queues.
+//!
+//! The API is documented in serverModule.h. All logging here uses the SPDLOG_
+//! macros, which are compiled out unless the build sets VERBOSE_LOGGING=ON.
+
 #include "serverModule.h"
 #include <unistd.h>
 #include <cstring>
@@ -5,7 +12,50 @@
 #include <climits>
 #include <ifaddrs.h>
 #include <net/if.h>
+#include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
+#include <spdlog/spdlog.h>
+#include <algorithm>
+
+namespace {
+//! @brief Predicate for the client list: the connection is still up.
+//! @param c Client handle to test.
+//! @return Its ClientHandle::alive flag.
+bool isAlive(const std::shared_ptr<ClientHandle>& c) { return c->alive.load(); }
+
+//! @brief socket() + SO_REUSEADDR + bind() to INADDR_ANY:port.
+//! @param type  SOCK_STREAM (TCP) or SOCK_DGRAM (UDP).
+//! @param port  Port to bind.
+//! @param proto Prefix of the error messages ("TCP" / "UDP"). Only the SPDLOG_
+//!              macros use it, and they can be compiled out (hence [[maybe_unused]]).
+//! @return The bound socket, or -1 on failure (logged with proto as the prefix; a
+//!         socket already created is closed first).
+int openBoundSocket(int type, int port, [[maybe_unused]] const char* proto) {
+    int fd = socket(AF_INET, type, 0);
+    if (fd < 0) {
+        SPDLOG_ERROR("{} socket() failed: {}", proto, strerror(errno));
+        return -1;
+    }
+
+    //! SO_REUSEADDR: a restarted server can bind the port again while TCP
+    //! connections from its previous run are still in TIME_WAIT (result unchecked)
+    int opt = 1;
+    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+    struct sockaddr_in addr{};
+    addr.sin_family      = AF_INET;
+    addr.sin_port        = htons(port);
+    addr.sin_addr.s_addr = INADDR_ANY;
+
+    if (bind(fd, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) < 0) {
+        SPDLOG_ERROR("{} bind on port {} failed: {}", proto, port, strerror(errno));
+        close(fd);
+        return -1;
+    }
+    return fd;
+}
+} // namespace
 
 // ============================================================================
 //  Construction / destruction
@@ -85,7 +135,7 @@ void ServerModule::resolveNetwork(const std::string& requestedDevice) {
         ip_ = ipbuf;
         netDevice_ = best->ifa_name;
     } else {
-        SPDLOG_WARN("No suitable network interface found, binding to INADDR_ANY");
+        SPDLOG_WARN("No suitable network interface found, reporting 0.0.0.0");
         ip_ = "0.0.0.0";
         netDevice_ = "any";
     }
@@ -99,26 +149,8 @@ void ServerModule::resolveNetwork(const std::string& requestedDevice) {
 // ============================================================================
 
 bool ServerModule::initTCP() {
-    tcpListenFd_ = socket(AF_INET, SOCK_STREAM, 0);
-    if (tcpListenFd_ < 0) {
-        SPDLOG_ERROR("TCP socket() failed: {}", strerror(errno));
-        return false;
-    }
-
-    int opt = 1;
-    setsockopt(tcpListenFd_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-
-    struct sockaddr_in addr{};
-    addr.sin_family      = AF_INET;
-    addr.sin_port        = htons(tcpPort_);
-    addr.sin_addr.s_addr = INADDR_ANY;
-
-    if (bind(tcpListenFd_, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) < 0) {
-        SPDLOG_ERROR("TCP bind on port {} failed: {}", tcpPort_, strerror(errno));
-        close(tcpListenFd_);
-        tcpListenFd_ = -1;
-        return false;
-    }
+    tcpListenFd_ = openBoundSocket(SOCK_STREAM, tcpPort_, "TCP");
+    if (tcpListenFd_ < 0) return false;
 
     if (listen(tcpListenFd_, 8) < 0) {
         SPDLOG_ERROR("TCP listen() failed: {}", strerror(errno));
@@ -132,26 +164,8 @@ bool ServerModule::initTCP() {
 }
 
 bool ServerModule::initUDP() {
-    udpFd_ = socket(AF_INET, SOCK_DGRAM, 0);
-    if (udpFd_ < 0) {
-        SPDLOG_ERROR("UDP socket() failed: {}", strerror(errno));
-        return false;
-    }
-
-    int opt = 1;
-    setsockopt(udpFd_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-
-    struct sockaddr_in addr{};
-    addr.sin_family      = AF_INET;
-    addr.sin_port        = htons(udpPort_);
-    addr.sin_addr.s_addr = INADDR_ANY;
-
-    if (bind(udpFd_, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) < 0) {
-        SPDLOG_ERROR("UDP bind on port {} failed: {}", udpPort_, strerror(errno));
-        close(udpFd_);
-        udpFd_ = -1;
-        return false;
-    }
+    udpFd_ = openBoundSocket(SOCK_DGRAM, udpPort_, "UDP");
+    if (udpFd_ < 0) return false;
 
     SPDLOG_INFO("UDP socket on port {}", udpPort_);
     return true;
@@ -187,7 +201,8 @@ void ServerModule::stop() {
     tcpTxCV_.notify_all();
     udpTxCV_.notify_all();
 
-    // Close the listening socket — causes accept() to return with an error.
+    // Shut down + close the listening socket: shutdown() makes a blocked
+    // accept() return with an error (close() alone would not wake it).
     if (tcpListenFd_ >= 0) {
         shutdown(tcpListenFd_, SHUT_RDWR);
         close(tcpListenFd_);
@@ -197,7 +212,8 @@ void ServerModule::stop() {
     // Join the accept thread first so no new ClientHandles are added after this point.
     if (tcpAcceptThread_.joinable()) tcpAcceptThread_.join();
 
-    // Collect client handles, close their fds (unblocks recv()), then join their threads.
+    // Collect client handles, shut down and close their fds (shutdown() unblocks
+    // recv()), then join their threads.
     std::vector<std::shared_ptr<ClientHandle>> snapshot;
     {
         std::lock_guard<std::mutex> lock(clientsMutex_);
@@ -219,8 +235,10 @@ void ServerModule::stop() {
         clients_.clear();
     }
 
-    // Close UDP socket — causes recvfrom() to return with an error.
+    // Shut down + close the UDP socket. close() alone does not wake a thread
+    // blocked in recvfrom() on Linux; shutdown() makes it return 0.
     if (udpFd_ >= 0) {
+        shutdown(udpFd_, SHUT_RDWR);
         close(udpFd_);
         udpFd_ = -1;
     }
@@ -251,25 +269,44 @@ void ServerModule::tcpAcceptLoop() {
         }
 
         auto client = std::make_shared<ClientHandle>();
+        client->id   = nextClientId_++;
         client->fd   = fd;
         client->ip   = inet_ntoa(clientAddr.sin_addr);
         client->port = ntohs(clientAddr.sin_port);
         SPDLOG_INFO("TCP client connected: {}:{}", client->ip, client->port);
 
+        // Prune dead handles before adding the new one. They are moved out
+        // under the lock and joined after it, so a slow RX thread never
+        // blocks the TUI (which reads the client list every frame).
+        std::vector<std::shared_ptr<ClientHandle>> dead;
+        {
+            std::lock_guard<std::mutex> lock(clientsMutex_);
+            auto mid = std::stable_partition(clients_.begin(), clients_.end(), isAlive);
+            dead.assign(std::make_move_iterator(mid), std::make_move_iterator(clients_.end()));
+            clients_.erase(mid, clients_.end());
+        }
+        for (auto& c : dead) {
+            if (c->fd >= 0) shutdown(c->fd, SHUT_RDWR);
+            if (c->rxThread.joinable()) c->rxThread.join();
+            if (c->fd >= 0) { close(c->fd); }
+        }
+
         std::lock_guard<std::mutex> lock(clientsMutex_);
 
-        // Prune dead handles before adding the new one.
-        clients_.erase(
-            std::remove_if(clients_.begin(), clients_.end(),
-                [](const std::shared_ptr<ClientHandle>& c) {
-                    if (!c->alive.load()) {
-                        if (c->rxThread.joinable()) c->rxThread.join();
-                        if (c->fd >= 0) { close(c->fd); }
-                        return true;
-                    }
-                    return false;
-                }),
-            clients_.end());
+        // Enforce the client limit (TCP only). The lock_guard is scoped to this
+        // iteration, so `continue` releases it.
+        size_t alive = std::count_if(clients_.begin(), clients_.end(), isAlive);
+        if (limitEnabled_.load() && alive >= maxClients_.load()) {
+            //! Tell the client why before closing it (MSG_NOSIGNAL: no SIGPIPE
+            //! if it has already gone)
+            static const char msg[] = "E: server full\n";
+            send(fd, msg, sizeof(msg) - 1, MSG_NOSIGNAL);
+            shutdown(fd, SHUT_RDWR);
+            close(fd);
+            SPDLOG_WARN("Rejected TCP client {}:{} (max {} reached)",
+                        client->ip, client->port, maxClients_.load());
+            continue;
+        }
 
         client->rxThread = std::thread(&ServerModule::tcpClientRxLoop, this, client);
         clients_.push_back(std::move(client));
@@ -296,7 +333,7 @@ void ServerModule::tcpClientRxLoop(std::shared_ptr<ClientHandle> client) {
 
         {
             std::lock_guard<std::mutex> lock(tcpRxMutex_);
-            tcpRxQueue_.push(std::string(buf, n));
+            tcpRxQueue_.emplace(client->id, std::string(buf, n));
         }
         SPDLOG_DEBUG("TCP RX from {}:{}: {} bytes", client->ip, client->port, n);
     }
@@ -306,7 +343,7 @@ void ServerModule::tcpClientRxLoop(std::shared_ptr<ClientHandle> client) {
 }
 
 // ============================================================================
-//  TCP — shared TX loop (broadcasts to all alive clients)
+//  TCP — shared TX loop (to one client, or broadcast to all alive clients)
 // ============================================================================
 
 void ServerModule::tcpTxLoop() {
@@ -317,7 +354,9 @@ void ServerModule::tcpTxLoop() {
         });
 
         while (!tcpTxQueue_.empty()) {
-            std::string msg = tcpTxQueue_.front();
+            //! Take one packet and send it without the queue lock, so
+            //! sendCommand() callers never wait on a socket
+            auto [to, msg] = std::move(tcpTxQueue_.front());
             tcpTxQueue_.pop();
             lock.unlock();
 
@@ -325,10 +364,13 @@ void ServerModule::tcpTxLoop() {
                 std::lock_guard<std::mutex> clientLock(clientsMutex_);
                 for (auto& c : clients_) {
                     if (!c->alive.load() || c->fd < 0) continue;
+                    if (to != 0 && c->id != to) continue;
                     ssize_t sent = send(c->fd, msg.c_str(), msg.size(), MSG_NOSIGNAL);
                     if (sent < 0) {
                         SPDLOG_ERROR("TCP send to {}:{} failed: {}", c->ip, c->port, strerror(errno));
                         c->alive = false;
+                        //! wake the RX thread out of recv() so the prune can join it
+                        shutdown(c->fd, SHUT_RDWR);
                     }
                 }
             }
@@ -343,26 +385,26 @@ void ServerModule::tcpTxLoop() {
 // ============================================================================
 
 bool ServerModule::sendCommand(const std::string& message) {
+    return sendCommandTo(0, message);
+}
+
+bool ServerModule::sendCommandTo(uint64_t clientId, const std::string& message) {
     if (!running_.load()) return false;
     {
         std::lock_guard<std::mutex> lock(tcpTxMutex_);
-        tcpTxQueue_.push(message);
+        tcpTxQueue_.emplace(clientId, message);
     }
     tcpTxCV_.notify_one();
     return true;
 }
 
-bool ServerModule::receiveCommand(std::string& message) {
+bool ServerModule::receiveCommand(std::string& message, uint64_t* from) {
     std::lock_guard<std::mutex> lock(tcpRxMutex_);
     if (tcpRxQueue_.empty()) return false;
-    message = tcpRxQueue_.front();
+    if (from) *from = tcpRxQueue_.front().first;
+    message = std::move(tcpRxQueue_.front().second);
     tcpRxQueue_.pop();
     return true;
-}
-
-bool ServerModule::hasPendingCommands() const {
-    std::lock_guard<std::mutex> lock(tcpRxMutex_);
-    return !tcpRxQueue_.empty();
 }
 
 // ============================================================================
@@ -388,15 +430,12 @@ void ServerModule::udpRxLoop() {
         std::string senderIP  = inet_ntoa(sender.sin_addr);
         int         senderPort = ntohs(sender.sin_port);
 
-        // Register sender so the TX loop knows where to send replies.
+        // Register the sender so the TX loop sends it the continuous stream
+        // (emplace() keeps the first-seen time of a peer already registered).
         {
             std::lock_guard<std::mutex> lock(udpClientsMutex_);
-            udpClients_.emplace(senderIP, senderPort);
-        }
-
-        {
-            std::lock_guard<std::mutex> lock(udpRxMutex_);
-            udpRxQueue_.push(std::string(buf, n));
+            udpClients_.emplace(std::make_pair(senderIP, senderPort),
+                                std::chrono::steady_clock::now());
         }
 
         SPDLOG_DEBUG("UDP RX from {}:{}: {} bytes", senderIP, senderPort, n);
@@ -423,10 +462,10 @@ void ServerModule::udpTxLoop() {
         }
 
         // Snapshot the client set so we don't hold the mutex during I/O.
-        std::set<std::pair<std::string, int>> targets;
+        std::vector<std::pair<std::string, int>> targets;
         {
             std::lock_guard<std::mutex> lock(udpClientsMutex_);
-            targets = udpClients_;
+            for (auto& entry : udpClients_) targets.push_back(entry.first);
         }
 
         for (auto& [ip, port] : targets) {
@@ -461,15 +500,39 @@ bool ServerModule::sendContinuous(const std::string& message) {
     return true;
 }
 
-bool ServerModule::receiveContinuous(std::string& message) {
-    std::lock_guard<std::mutex> lock(udpRxMutex_);
-    if (udpRxQueue_.empty()) return false;
-    message = udpRxQueue_.front();
-    udpRxQueue_.pop();
-    return true;
+// ============================================================================
+//  Client inspection (used by the TUI)
+// ============================================================================
+
+std::vector<ClientInfo> ServerModule::getClients() const {
+    std::vector<ClientInfo> out;
+    {
+        std::lock_guard<std::mutex> lock(clientsMutex_);
+        for (auto& c : clients_) {
+            if (!c->alive.load()) continue;
+            out.push_back({"TCP", c->ip, c->port, c->connectedAt});
+        }
+    }
+    {
+        std::lock_guard<std::mutex> lock(udpClientsMutex_);
+        for (auto& [peer, since] : udpClients_) {
+            out.push_back({"UDP", peer.first, peer.second, since});
+        }
+    }
+    return out;
 }
 
-bool ServerModule::hasContinuousData() const {
-    std::lock_guard<std::mutex> lock(udpRxMutex_);
-    return !udpRxQueue_.empty();
+size_t ServerModule::tcpClientCount() const {
+    std::lock_guard<std::mutex> lock(clientsMutex_);
+    return std::count_if(clients_.begin(), clients_.end(), isAlive);
+}
+
+size_t ServerModule::udpClientCount() const {
+    std::lock_guard<std::mutex> lock(udpClientsMutex_);
+    return udpClients_.size();
+}
+
+void ServerModule::clearUdpClients() {
+    std::lock_guard<std::mutex> lock(udpClientsMutex_);
+    udpClients_.clear();
 }

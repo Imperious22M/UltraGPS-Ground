@@ -17,9 +17,10 @@ and bridges the positioning hardware to the network:
 - Runs a **UDP data stream** (default port `9001`): while in continuous mode,
   live position data from the Arduino is streamed out to clients.
 
-The third-party libraries (`spdlog`, `tomlplusplus`, `argparse`) are vendored as
-git submodules and statically linked, so the installed binary has no
-third-party runtime dependencies.
+The third-party libraries (`spdlog`, `argparse`) are vendored as git submodules
+and statically linked, so the installed binary has no third-party runtime
+dependencies. (The `tomlplusplus` submodule is still checked out, but the
+build no longer uses it.)
 
 ## Requirements
 
@@ -27,6 +28,9 @@ third-party runtime dependencies.
 - `git` (the third-party libraries are git submodules)
 - `dpkg`/`cpack` — only needed to build the `.deb` package
 - Python 3 with `pip` — only needed to build/preview the documentation
+- TUI build dependencies: `pkg-config libunistring-dev libncurses-dev zlib1g-dev`
+  (`sudo apt install ...`). The first build downloads the notcurses source
+  (hash-verified), so it needs network access.
 
 Clone with submodules:
 
@@ -75,6 +79,7 @@ previewing the docs. Run it from the repository root:
 | Option | Applies to | Effect |
 |--------|-----------|--------|
 | `-v`, `--verbose` | `build` | Configure with `-DVERBOSE_LOGGING=ON` (debug build, `SPDLOG_*` macros active) |
+| `--no-tui` | `build`, `deb` | Build without the notcurses terminal UI (`-DULTRAGPS_TUI=OFF`) |
 | `-h`, `--help` | — | Show usage |
 
 ### Compiling the program
@@ -119,6 +124,25 @@ its runtime dependencies (`libc6`, `libstdc++6`, `libgcc-s1`) automatically.
 ```bash
 ./build.sh clean            # removes ./build/
 ```
+
+## Terminal UI build options
+
+| CMake option | Default | Effect |
+|--------------|---------|--------|
+| `ULTRAGPS_TUI` | `ON` | Build the `--tui` interface. If its dependencies are missing, the build falls back to headless with a warning |
+| `ULTRAGPS_NOTCURSES` | `bundled` | `bundled` downloads notcurses-core (version pinned in `CMakeLists.txt`), applies `cmake/NotcursesTmuxDa1.cmake` and links it statically. `system` uses an installed `notcurses-core` found with pkg-config |
+| `ULTRAGPS_NOTCURSES_SRC` | *(empty)* | Local notcurses source directory or tarball, for offline builds |
+
+!!! warning "Why notcurses is bundled and patched"
+    Stock notcurses (tested 3.0.9 and 3.0.17; master has the same input table) hangs inside
+    `notcurses_init()` under tmux 3.4 or newer. tmux answers the Primary Device
+    Attributes query with `CSI ? 1;2;4 c`, which notcurses' input automaton does
+    not recognise. `cmake/NotcursesTmuxDa1.cmake` adds that reply, plus tmux's
+    XTSMGRAPHICS error replies, to its table. A copy installed under
+    `/usr/local` usually also needs a `libunistring.so` soname that Ubuntu 24.04
+    no longer ships, and no package owns it, so `dpkg-shlibdeps` would fail.
+    Static linking avoids both problems. `build.sh deb` refuses to package a
+    binary that still links notcurses dynamically.
 
 ## Previewing the documentation
 

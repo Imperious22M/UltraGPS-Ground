@@ -12,13 +12,22 @@ hardware to the network. It:
   `/dev/ttyACM0` @ 38400 bps) via the Comms/Serial modules.
 - Runs a **TCP command server** (default port `9000`): network clients send
   commands, which are validated and forwarded to the Arduino, and the response
-  is returned to the client.
+  is returned to the client. `help` (or `?`) returns the command reference,
+  which `UltraGpsXY --help` also prints.
 - Runs a **UDP data stream** (default port `9001`): while in continuous mode,
   live position data from the Arduino is streamed out to clients.
+- Optionally runs an interactive **terminal UI** (`UltraGpsXY --tui`, built
+  with [notcurses](https://github.com/dankamongmen/notcurses)). It shows live
+  receiver ticks with each receiver's jitter, a 60 s graph per receiver, a log
+  of every serial line, the server status and connected clients, a settings
+  screen (baud/port reopen, client limit, base-station commands) and a help
+  screen with the command reference. It works inside tmux.
 
 It is a single C++17 executable. The third-party libraries (`spdlog`,
-`tomlplusplus`, `argparse`) are vendored as git submodules and statically
-linked, so the installed binary has no third-party runtime dependencies.
+`argparse`) are vendored as git submodules and statically linked (the
+`tomlplusplus` submodule is still checked out but no longer used). notcurses-core is downloaded at build time, patched for tmux and
+statically linked. The installed binary only needs distro libraries (`libc6`,
+`libstdc++6`, `libtinfo6`, `zlib1g`).
 
 An Arduino Uno running the ground station Arduino program should be plugged in to a USB 
 port of the PC running this program before this program is initiated.
@@ -31,6 +40,9 @@ for architecture, usage, and design notes.
 - A C++17 compiler (GCC or Clang) and CMake ≥ 3.15
 - `git` (the third-party libraries are git submodules)
 - `dpkg`/`cpack` — only needed to build the `.deb` package
+- For the TUI: `pkg-config libunistring-dev libncurses-dev zlib1g-dev`, plus
+  network access on the first build to download notcurses (use `--no-tui` to
+  skip it)
 
 Clone with submodules:
 
@@ -83,6 +95,7 @@ previewing the docs. Run it from the repository root:
 | Option | Applies to | Effect |
 |--------|-----------|--------|
 | `-v`, `--verbose` | `build` | Configure with `-DVERBOSE_LOGGING=ON` (debug build, `SPDLOG_*` macros active) |
+| `--no-tui` | `build`, `deb` | Build without the notcurses terminal UI (`-DULTRAGPS_TUI=OFF`) |
 | `-h`, `--help` | — | Show usage |
 
 ### Compiling the program

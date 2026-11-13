@@ -17,6 +17,7 @@ BUILD_DIR="$PROJECT_DIR/build"
 SITE_DIR="$PROJECT_DIR/site"
 
 VERBOSE=OFF
+TUI=ON
 
 usage() {
     cat <<EOF
@@ -33,6 +34,7 @@ Commands:
 
 Options:
   -v, --verbose   Configure with -DVERBOSE_LOGGING=ON (build command only)
+      --no-tui    Build without the notcurses terminal UI (-DULTRAGPS_TUI=OFF)
   -h, --help      Show this help
 
 Examples:
@@ -57,8 +59,8 @@ require_mkdocs() {
 }
 
 cmd_build() {
-    echo ">> Configuring (VERBOSE_LOGGING=$VERBOSE) ..."
-    cmake -S "$PROJECT_DIR" -B "$BUILD_DIR" -DVERBOSE_LOGGING="$VERBOSE"
+    echo ">> Configuring (VERBOSE_LOGGING=$VERBOSE, ULTRAGPS_TUI=$TUI) ..."
+    cmake -S "$PROJECT_DIR" -B "$BUILD_DIR" -DVERBOSE_LOGGING="$VERBOSE" -DULTRAGPS_TUI="$TUI"
     echo ">> Building ..."
     cmake --build "$BUILD_DIR" -j"$(nproc)"
     echo ">> Done: $BUILD_DIR/UltraGpsXY"
@@ -68,13 +70,19 @@ cmd_deb() {
     local version tmp deb
     # Build in a temporary directory.
     tmp="$(mktemp -d "${TMPDIR:-/tmp}/ultragps-deb.XXXXXX")"
-    # Clean up the temp tree on exit, success or failure.
+    # Remove the temp tree when cmd_deb returns (an error exit leaves it behind).
     trap 'rm -rf "$tmp"' RETURN
 
-    echo ">> Configuring (release) in $tmp ..."
-    cmake -S "$PROJECT_DIR" -B "$tmp" >/dev/null
+    echo ">> Configuring (release, ULTRAGPS_TUI=$TUI) in $tmp ..."
+    cmake -S "$PROJECT_DIR" -B "$tmp" -DULTRAGPS_TUI="$TUI" >/dev/null
     echo ">> Building ..."
     cmake --build "$tmp" -j"$(nproc)" >/dev/null
+    # The package must not depend on a notcurses shared library: it is linked
+    # statically, and a copy in /usr/local is owned by no package.
+    if readelf -d "$tmp/UltraGpsXY" | grep -E 'NEEDED.*(notcurses|unistring)' >&2; then
+        echo "error: UltraGpsXY links notcurses/libunistring dynamically; the .deb would not install cleanly" >&2
+        exit 1
+    fi
     echo ">> Packaging .deb ..."
     ( cd "$tmp" && cpack --config CPackConfig.cmake -G DEB >/dev/null )
 
@@ -120,6 +128,7 @@ for arg in "$@"; do
     case "$arg" in
         build|deb|clean|docs|docs-build)  COMMAND="$arg" ;;
         -v|--verbose)     VERBOSE=ON ;;
+        --no-tui)         TUI=OFF ;;
         -h|--help)        usage; exit 0 ;;
         *) echo "Unknown argument: $arg" >&2; echo >&2; usage >&2; exit 1 ;;
     esac
