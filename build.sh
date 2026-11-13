@@ -18,6 +18,7 @@ SITE_DIR="$PROJECT_DIR/site"
 
 VERBOSE=OFF
 TUI=ON
+TERMINAL=bash
 
 usage() {
     cat <<EOF
@@ -34,13 +35,19 @@ Commands:
 
 Options:
   -v, --verbose   Configure with -DVERBOSE_LOGGING=ON (build command only)
+      --bash      Build the TUI for a plain terminal: stock notcurses
+                  (-DULTRAGPS_TUI_TERMINAL=bash, the default)
+      --tmux      Build the TUI for tmux: notcurses with the tmux patch
+                  (-DULTRAGPS_TUI_TERMINAL=tmux)
       --no-tui    Build without the notcurses terminal UI (-DULTRAGPS_TUI=OFF)
   -h, --help      Show this help
 
 Examples:
   ./build.sh build            # optimised binary in ./build/UltraGpsXY
   ./build.sh build --verbose  # debug build with SPDLOG macros active
+  ./build.sh build --tmux     # TUI that works inside tmux
   ./build.sh deb              # ./build/ultragps-xy_<version>_amd64.deb
+  ./build.sh deb --tmux       # ./build/ultragps-xy-tmux_<version>_amd64.deb
   ./build.sh clean            # wipe ./build
   ./build.sh docs             # live-preview docs without pushing
   ./build.sh docs-build       # render docs to ./site
@@ -58,23 +65,35 @@ require_mkdocs() {
     fi
 }
 
+# The TUI builds notcurses from the submodule; check it is checked out before
+# configuring, with a clearer hint than CMake's.
+require_notcurses() {
+    if [[ "$TUI" == ON && ! -f "$PROJECT_DIR/notcurses/src/lib/in.c" ]]; then
+        echo ">> Fetching the notcurses submodule ..."
+        git -C "$PROJECT_DIR" submodule update --init --recursive notcurses
+    fi
+}
+
 cmd_build() {
-    echo ">> Configuring (VERBOSE_LOGGING=$VERBOSE, ULTRAGPS_TUI=$TUI) ..."
-    cmake -S "$PROJECT_DIR" -B "$BUILD_DIR" -DVERBOSE_LOGGING="$VERBOSE" -DULTRAGPS_TUI="$TUI"
+    require_notcurses
+    echo ">> Configuring (VERBOSE_LOGGING=$VERBOSE, ULTRAGPS_TUI=$TUI, ULTRAGPS_TUI_TERMINAL=$TERMINAL) ..."
+    cmake -S "$PROJECT_DIR" -B "$BUILD_DIR" -DVERBOSE_LOGGING="$VERBOSE" \
+        -DULTRAGPS_TUI="$TUI" -DULTRAGPS_TUI_TERMINAL="$TERMINAL"
     echo ">> Building ..."
     cmake --build "$BUILD_DIR" -j"$(nproc)"
     echo ">> Done: $BUILD_DIR/UltraGpsXY"
 }
 
 cmd_deb() {
-    local version tmp deb
+    local name version tmp deb
+    require_notcurses
     # Build in a temporary directory.
     tmp="$(mktemp -d "${TMPDIR:-/tmp}/ultragps-deb.XXXXXX")"
     # Remove the temp tree when cmd_deb returns (an error exit leaves it behind).
     trap 'rm -rf "$tmp"' RETURN
 
-    echo ">> Configuring (release, ULTRAGPS_TUI=$TUI) in $tmp ..."
-    cmake -S "$PROJECT_DIR" -B "$tmp" -DULTRAGPS_TUI="$TUI" >/dev/null
+    echo ">> Configuring (release, ULTRAGPS_TUI=$TUI, ULTRAGPS_TUI_TERMINAL=$TERMINAL) in $tmp ..."
+    cmake -S "$PROJECT_DIR" -B "$tmp" -DULTRAGPS_TUI="$TUI" -DULTRAGPS_TUI_TERMINAL="$TERMINAL" >/dev/null
     echo ">> Building ..."
     cmake --build "$tmp" -j"$(nproc)" >/dev/null
     # The package must not depend on a notcurses shared library: it is linked
@@ -86,13 +105,14 @@ cmd_deb() {
     echo ">> Packaging .deb ..."
     ( cd "$tmp" && cpack --config CPackConfig.cmake -G DEB >/dev/null )
 
-    # Take the version from the package itself (authoritative — it comes from
-    # PROJECT_VERSION in CMake) rather than re-parsing CMakeLists.txt.
+    # Take the name and version from the package itself (authoritative — they
+    # come from CMake) rather than re-parsing CMakeLists.txt.
+    name="$(dpkg-deb -f "$tmp"/*.deb Package)"
     version="$(dpkg-deb -f "$tmp"/*.deb Version)"
 
     # Copy the finished package into ./build
     mkdir -p "$BUILD_DIR"
-    deb="$BUILD_DIR/ultragps-xy_${version}_amd64.deb"
+    deb="$BUILD_DIR/${name}_${version}_amd64.deb"
     cp "$tmp"/*.deb "$deb"
     echo ">> Done: $deb"
     echo
@@ -128,6 +148,8 @@ for arg in "$@"; do
     case "$arg" in
         build|deb|clean|docs|docs-build)  COMMAND="$arg" ;;
         -v|--verbose)     VERBOSE=ON ;;
+        --bash)           TERMINAL=bash ;;
+        --tmux)           TERMINAL=tmux ;;
         --no-tui)         TUI=OFF ;;
         -h|--help)        usage; exit 0 ;;
         *) echo "Unknown argument: $arg" >&2; echo >&2; usage >&2; exit 1 ;;

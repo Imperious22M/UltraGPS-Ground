@@ -1,6 +1,6 @@
 name: Release
 
-# Cut a versioned GitHub Release with the .deb package attached.
+# Cut a versioned GitHub Release with both .deb packages attached.
 #
 # Trigger: pushing a version tag (e.g. v1.0) — conventionally on the `release`
 # branch, which is the stable snapshot of a released version.
@@ -12,7 +12,8 @@ name: Release
 #          git checkout release
 #          git tag v1.0
 #          git push origin v1.0
-#   3. This workflow builds the .deb and publishes it under the Releases tab.
+#   3. This workflow builds both .debs (bash and tmux) and publishes them
+#      under the Releases tab.
 
 on:
   push:
@@ -35,33 +36,41 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      # The TUI downloads and statically links notcurses-core; these are its
-      # build dependencies (headers + static libunistring).
+      # The TUI builds notcurses-core from the notcurses submodule and links it
+      # statically; these are its build dependencies (headers + static
+      # libunistring).
       - name: Install TUI build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y pkg-config libunistring-dev libncurses-dev zlib1g-dev
+          sudo apt-get install -y libunistring-dev libncurses-dev zlib1g-dev
 
-      - name: Build the .deb package
-        run: bash build.sh deb
+      # Two packages: ultragps-xy (bash, the default) and ultragps-xy-tmux
+      # (notcurses patched so the TUI starts inside tmux >= 3.4).
+      - name: Build the .deb packages
+        run: |
+          bash build.sh deb
+          bash build.sh deb --tmux
 
-      - name: Verify the package version matches the tag
+      - name: Verify the package versions match the tag
         run: |
           tag="${GITHUB_REF_NAME#v}"                       # v1.0 -> 1.0
-          deb="$(ls build/ultragps-xy_*_amd64.deb)"
-          pkgver="$(dpkg-deb -f "$deb" Version)"
-          echo "tag version: $tag   package version: $pkgver"
-          if [ "$tag" != "$pkgver" ]; then
-            echo "::error::Tag ($tag) does not match the package version ($pkgver). \
+          debs=(build/ultragps-xy_*_amd64.deb build/ultragps-xy-tmux_*_amd64.deb)
+          for deb in "${debs[@]}"; do
+            pkgver="$(dpkg-deb -f "$deb" Version)"
+            echo "tag version: $tag   $(basename "$deb") version: $pkgver"
+            if [ "$tag" != "$pkgver" ]; then
+              echo "::error::Tag ($tag) does not match the package version ($pkgver). \
           Bump project(VERSION) in CMakeLists.txt to match the tag before releasing." >&2
-            exit 1
-          fi
-          echo "DEB_PATH=$deb" >> "$GITHUB_ENV"
+              exit 1
+            fi
+          done
+          echo "DEB_PATHS=${debs[*]}" >> "$GITHUB_ENV"
 
-      - name: Create the GitHub Release and upload the .deb
+      - name: Create the GitHub Release and upload the .debs
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" "$DEB_PATH" \
+          # DEB_PATHS is unquoted on purpose: one argument per package
+          gh release create "$GITHUB_REF_NAME" $DEB_PATHS \
             --title "UltraGPS Ground Station $GITHUB_REF_NAME" \
             --generate-notes

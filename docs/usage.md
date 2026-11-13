@@ -72,10 +72,30 @@ closed. It works everywhere a command can be given:
 
 - **TCP command port:** the reference comes back as text lines, to the client
   that asked only (other replies go to every connected client).
+
+    ![help sent from a TCP client with nc](images/tcp-help.png)
+
+    *`help` sent from `nc`. This test server was started with `-t 9100`; by
+    default the command port is 9000.*
+
 - **TUI:** on the MAIN screen command line, or as the settings RAW COMMAND, it
   prints the reference into the serial link log (scrolled to its first line;
   PgDn reads on). The F3 HELP screen shows it too, with the TUI keys.
+
+    ![help typed on the TUI MAIN screen, printed into the serial link log](images/tui-help-log.png)
+
+    *`help` typed on the MAIN screen command line: the reference is printed
+    into the SERIAL LINK log on the right.*
+
+    ![the TUI F3 HELP screen](images/tui-help-screen.png)
+
+    *The F3 HELP screen.*
+
 - **Command line:** `UltraGpsXY --help` prints it after the option list.
+
+    ![UltraGpsXY --help output](images/cli-help.png)
+
+    *`UltraGpsXY --help`: the option list, then the command reference.*
 
 ## Client limit
 
@@ -120,7 +140,7 @@ UltraGpsXY --tui -s /dev/ttyACM0
   and last item), press Enter to edit it, type the value, and press Enter to
   apply it. Esc cancels. The list scrolls (arrows on the frame show there is
   more), and selecting the last item of a section also brings the status rows
-  below it into view, so every row is reachable at 80x24.
+  below it into view.
 - The list has four sections: SERIAL LINK (HOST SIDE), NETWORK SERVER, BASE
   STATION (base-station commands, then its status) and TRANSMITTER STATION
   SETTINGS (the transmitter reset, burst delay and trigger rate, then their
@@ -163,16 +183,16 @@ UltraGpsXY --tui -s /dev/ttyACM0
 - The NOTE rows at the top of that section say the same: SET ON BASE-STATION,
   APPLIES TO BASE + TRANSMITTER.
 - SAMPLING MS (H) takes a value from 1 to 80 % of the trigger period (80 ms at
-  10 Hz, never more than 1000) and sends `H <ms>`. Values outside that range
+  10 HZ) and sends `H <ms>`. Values outside that range
   are rejected in the TUI (the upper limit follows the last reported trigger
-  rate; 1000 until one is known). QUERY SAMPLING sends `H 0`: the firmware
+  rate). QUERY SAMPLING sends `H 0`: the firmware
   changes nothing for a value out of range and replies with the sampling time
   still in force, so this reads the setting without changing it.
 - TRIGGER HZ 1-50 (F) takes a rate from 1 to 50 Hz and sends `F <Hz>`. The base
   station restarts its trigger timer, tells the transmitter station (which
   stores the rate and resets), and sets the sampling time to its maximum, 80 %
   of the new period. QUERY RATE sends `F 0`, which changes nothing and reports the rate,
-  Timer1 TOP and sampling time in force.
+  Timer1 TOP and sampling time in force. This is experimental as the system is meant to be used at a rate of 10HZ.
 - The BASE STATION status rows show the sampling time and its Timer1 counts
   (16 us each, from `H` or `F`), the stored baud rate (from `B`, compared with
   the host's) and the last reply line. The TRANSMITTER STATION SETTINGS status rows
@@ -219,6 +239,10 @@ to the next one, PgUp/PgDn scroll the log, Up/Down recall command history,
 Ctrl-L redraws, and F10, Ctrl-Q or Ctrl-C quit and restore the terminal.
 
 ### tmux / zsh notes
+
+Inside tmux 3.4 or newer the TUI needs the **tmux build**
+(`./build.sh build --tmux`, or the `ultragps-xy-tmux` package). The default
+bash build hangs at startup there. In a plain terminal both builds work.
 
 The TUI only needs a UTF-8 terminal and a working terminfo entry
 (`tmux-256color`, `screen-256color` and `xterm-256color` all work). The

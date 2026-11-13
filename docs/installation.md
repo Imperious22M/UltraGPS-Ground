@@ -7,8 +7,13 @@ Debian package from a release, or build it from source.
 
 Each tagged version is published on the
 [Releases page](https://github.com/Imperious22M/UltraGPS-Ground/releases) with
-the `.deb` package attached. Download the latest `ultragps-xy_<version>_amd64.deb`
-and install it:
+two `.deb` packages attached:
+
+- `ultragps-xy_<version>_amd64.deb`: the default build, for a plain terminal.
+- `ultragps-xy-tmux_<version>_amd64.deb`: the tmux build. Use it if you run
+  `UltraGpsXY --tui` inside tmux 3.4 or newer. It replaces `ultragps-xy`.
+
+Download the one you need and install it:
 
 ```bash
 sudo dpkg -i ultragps-xy_*_amd64.deb
@@ -21,10 +26,10 @@ its runtime dependencies (`libc6`, `libstdc++6`, `libgcc-s1`) automatically.
 
 - A C++17 compiler (GCC or Clang) and CMake ≥ 3.15
 - `git` (the third-party libraries are git submodules)
-- For the terminal UI: `sudo apt install pkg-config libunistring-dev libncurses-dev zlib1g-dev`.
-  The first build downloads notcurses, so it needs network access. Without
-  these packages the build continues headless-only; `./build.sh build --no-tui`
-  skips the TUI explicitly.
+- For the terminal UI (built in by default): `sudo apt install libunistring-dev libncurses-dev zlib1g-dev`.
+  notcurses comes from the `notcurses` submodule, so no network access is
+  needed at build time. Without these packages configuring fails;
+  `./build.sh build --no-tui` builds without the TUI.
 
 ## Build from source
 
@@ -37,9 +42,14 @@ cd UltraGPS-Ground
 # If you already cloned without --recurse-submodules:
 git submodule update --init --recursive
 
-./build.sh build          # optimised binary → ./build/UltraGpsXY
+./build.sh build          # optimised binary → ./build/UltraGpsXY (bash TUI)
+./build.sh build --tmux   # TUI that also starts inside tmux
 ./build.sh build --verbose  # debug build with SPDLOG macros active
 ```
+
+The default **bash** variant uses stock notcurses. Stock notcurses hangs at
+startup inside tmux 3.4 or newer, so build with `--tmux` (which applies the
+patch in `notcurses-tmux-patch-cmake/`) if you run the TUI inside tmux.
 
 `./build.sh clean` removes the `build/` directory (equivalent to `make clean`).
 
@@ -47,7 +57,8 @@ git submodule update --init --recursive
     `build.sh` just wraps CMake:
 
     ```
-    cmake -S . -B build
+    cmake -S . -B build                               # bash variant
+    cmake -S . -B build -DULTRAGPS_TUI_TERMINAL=tmux  # or the tmux variant
     cmake --build build -j "$(nproc)"
     ```
 
@@ -57,7 +68,11 @@ Build a `.deb` with the helper script:
 
 ```bash
 ./build.sh deb            # → ./build/ultragps-xy_<version>_amd64.deb
+./build.sh deb --tmux     # → ./build/ultragps-xy-tmux_<version>_amd64.deb
 ```
+
+`ultragps-xy-tmux` installs the same `/usr/bin/UltraGpsXY` and replaces
+`ultragps-xy`, so only one of the two can be installed.
 
 Install it:
 

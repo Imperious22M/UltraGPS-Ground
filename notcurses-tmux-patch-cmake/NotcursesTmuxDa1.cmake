@@ -3,9 +3,9 @@
 #
 # Usage: run as a CMake script (`cmake -P`) from the notcurses source
 # directory; CMakeLists.txt does this through the PATCH_COMMAND of the
-# notcurses_ext ExternalProject (ULTRAGPS_NOTCURSES=bundled). When
-# ULTRAGPS_NOTCURSES_SRC names a local source directory, that directory is
-# patched in place.
+# notcurses_ext ExternalProject when ULTRAGPS_TUI_TERMINAL=tmux. It runs on a
+# copy of the notcurses submodule in the build directory, so the submodule
+# checkout itself is never modified.
 #
 # tmux >= 3.4 built with sixel support (Ubuntu 24.04's tmux) answers the
 # Primary Device Attributes query with "CSI ? 1 ; 2 ; 4 c". notcurses' input
@@ -41,7 +41,7 @@ endif()
 set(_anchor "    { \"[?1;2c\", da1_cb, },")
 string(FIND "${_src}" "${_anchor}" _pos)
 if(_pos EQUAL -1)
-    message(FATAL_ERROR "notcurses: cannot find DA1 table in ${_in}; update cmake/NotcursesTmuxDa1.cmake")
+    message(FATAL_ERROR "notcurses: cannot find DA1 table in ${_in}; update notcurses-tmux-patch-cmake/NotcursesTmuxDa1.cmake")
 endif()
 # Replace the anchor with the three new lines followed by the anchor itself
 # (it occurs once in in.c, so only the table changes)

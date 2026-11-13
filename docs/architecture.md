@@ -24,8 +24,9 @@ binary has no third-party runtime dependencies:
 - The `tomlplusplus` submodule is still checked out but no longer used: the
   build does not include it.
 - [`notcurses`](https://github.com/dankamongmen/notcurses) (core library only)
-  — terminal UI. It is not a submodule: CMake downloads a pinned release at
-  build time, patches it for tmux, and links it statically.
+  — terminal UI. A submodule pinned to v3.0.17. CMake copies it into the
+  build directory, applies `notcurses-tmux-patch-cmake/` for the tmux variant
+  (`-DULTRAGPS_TUI_TERMINAL=tmux`), and links it statically.
 
 ## Data flow
 

@@ -47,38 +47,68 @@ add_subdirectory("${CMAKE_SOURCE_DIR}/argparse")
 # ---------------------------------------------------------------------------
 # Terminal UI (notcurses-core)
 #
-#   ULTRAGPS_TUI             Build the --tui interface (default ON). If
-#                            notcurses cannot be obtained the build falls back
-#                            to headless-only with a warning.
-#   ULTRAGPS_NOTCURSES       Where notcurses comes from:
-#     bundled (default)      Download notcurses ${ULTRAGPS_NOTCURSES_VERSION}
-#                            (hash-verified tarball) at build time, apply
-#                            cmake/NotcursesTmuxDa1.cmake, and link
-#                            notcurses-core statically. Required for tmux:
-#                            stock notcurses (3.0.9 and 3.0.17 tested)
-#                            hangs at startup inside tmux >= 3.4.
-#     system                 Use an installed notcurses-core found with
-#                            pkg-config (static archive preferred). Only
-#                            safe if that copy carries the same patch.
-#   ULTRAGPS_NOTCURSES_SRC   Optional local notcurses source tree or tarball
-#                            for offline builds (bundled mode).
+#   ULTRAGPS_TUI             Build the --tui interface (default ON).
+#   ULTRAGPS_TUI_TERMINAL    Which terminal the TUI build targets:
+#     bash (default)         Stock notcurses from the submodule, unmodified.
+#                            For running in a plain terminal (bash/zsh).
+#     tmux                   The same notcurses with
+#                            notcurses-tmux-patch-cmake/NotcursesTmuxDa1.cmake
+#                            applied. Stock notcurses (3.0.9 and 3.0.17
+#                            tested) hangs at startup inside tmux >= 3.4.
+#
+#   notcurses comes from the `notcurses` git submodule, pinned to the commit
+#   recorded in this repository. At build time the submodule is copied into
+#   the build directory, patched there (tmux only), and notcurses-core is
+#   built and linked statically. The submodule checkout is never modified.
 #
 #   The static link keeps the binary's NEEDED list to libc/libstdc++/libgcc_s/
 #   libm/libtinfo/libz, which all belong to distro packages. dpkg-shlibdeps
 #   can then resolve every entry, and nothing from /usr/local ends up in the
-#   .deb. Build dependencies: pkg-config, libunistring-dev, libncurses-dev,
-#   zlib1g-dev.
+#   .deb. Build dependencies: libunistring-dev, libncurses-dev, zlib1g-dev.
 # ---------------------------------------------------------------------------
 option(ULTRAGPS_TUI "Build the notcurses terminal UI (--tui)" ON)
-set(ULTRAGPS_NOTCURSES "bundled" CACHE STRING "notcurses source: bundled or system")
-set_property(CACHE ULTRAGPS_NOTCURSES PROPERTY STRINGS bundled system)
-set(ULTRAGPS_NOTCURSES_SRC "" CACHE PATH "Local notcurses source dir or tarball (bundled mode, offline)")
-set(ULTRAGPS_NOTCURSES_VERSION "3.0.17")
-set(ULTRAGPS_NOTCURSES_SHA256 "b0fbe824984fe25b5a16770dbd00b85d44db5d09cc35bd881b95335d0db53128")
+set(ULTRAGPS_TUI_TERMINAL "bash" CACHE STRING "Terminal the TUI targets: bash or tmux")
+set_property(CACHE ULTRAGPS_TUI_TERMINAL PROPERTY STRINGS bash tmux)
 
-set(ULTRAGPS_TUI_DYNAMIC_NOTCURSES OFF)
 if(ULTRAGPS_TUI)
-    find_package(PkgConfig QUIET)
+    if(NOT ULTRAGPS_TUI_TERMINAL MATCHES "^(bash|tmux)$")
+        message(FATAL_ERROR "ULTRAGPS_TUI_TERMINAL must be 'bash' or 'tmux'")
+    endif()
+
+    set(_nc_submodule "${CMAKE_SOURCE_DIR}/notcurses")
+    if(NOT EXISTS "${_nc_submodule}/src/lib/in.c")
+        message(FATAL_ERROR "TUI: the notcurses submodule is not checked out. Run\n"
+                            "    git submodule update --init --recursive\n"
+                            "or configure with -DULTRAGPS_TUI=OFF (./build.sh --no-tui).")
+    endif()
+
+    # The submodule must be at the commit this repository pins (the gitlink in
+    # the index). A stale or hand-moved checkout would build another version.
+    find_package(Git QUIET)
+    set(_nc_commit "")
+    if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
+        execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${_nc_submodule}" rev-parse HEAD
+                        OUTPUT_VARIABLE _nc_commit OUTPUT_STRIP_TRAILING_WHITESPACE
+                        RESULT_VARIABLE _nc_rc ERROR_QUIET)
+        execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${CMAKE_SOURCE_DIR}" ls-files -s notcurses
+                        OUTPUT_VARIABLE _nc_pin OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+        string(REGEX MATCH "[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]+" _nc_pin "${_nc_pin}")
+        if(_nc_rc EQUAL 0 AND _nc_pin AND NOT _nc_commit STREQUAL _nc_pin)
+            message(FATAL_ERROR "TUI: notcurses submodule is at ${_nc_commit}, expected ${_nc_pin}. Run\n"
+                                "    git submodule update --init notcurses")
+        endif()
+        # Re-run configure when the submodule moves, so the copy below is redone
+        execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${_nc_submodule}" rev-parse --absolute-git-dir
+                        OUTPUT_VARIABLE _nc_gitdir OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+        if(EXISTS "${_nc_gitdir}/HEAD")
+            set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_nc_gitdir}/HEAD")
+        endif()
+    endif()
+    if(NOT _nc_commit)
+        set(_nc_commit "unknown")
+    endif()
+    string(SUBSTRING "${_nc_commit}" 0 7 _nc_short)
+
     find_package(Threads REQUIRED)
     find_library(UNISTRING_STATIC NAMES libunistring.a)
     find_library(UNISTRING_LIB NAMES unistring)
@@ -91,93 +121,58 @@ if(ULTRAGPS_TUI)
     else()
         set(_unistring ${UNISTRING_LIB})
     endif()
-
-    if(ULTRAGPS_NOTCURSES STREQUAL "bundled")
-        if(NOT PkgConfig_FOUND OR NOT _unistring OR NOT TINFO_LIB OR NOT ZLIB_LIB)
-            message(WARNING "TUI: bundled notcurses needs pkg-config, libunistring-dev, "
-                            "libncurses-dev and zlib1g-dev - building without the TUI")
-            set(ULTRAGPS_TUI OFF)
-        else()
-            include(ExternalProject)
-            if(ULTRAGPS_NOTCURSES_SRC AND IS_DIRECTORY "${ULTRAGPS_NOTCURSES_SRC}")
-                set(_nc_source SOURCE_DIR "${ULTRAGPS_NOTCURSES_SRC}")
-            elseif(ULTRAGPS_NOTCURSES_SRC)
-                set(_nc_source URL "${ULTRAGPS_NOTCURSES_SRC}")
-            else()
-                set(_nc_source
-                    URL "https://github.com/dankamongmen/notcurses/archive/refs/tags/v${ULTRAGPS_NOTCURSES_VERSION}.tar.gz"
-                    URL_HASH "SHA256=${ULTRAGPS_NOTCURSES_SHA256}")
-            endif()
-            set(_nc_bin "${CMAKE_BINARY_DIR}/notcurses-build")
-            set(_nc_lib "${_nc_bin}/libnotcurses-core.a")
-            ExternalProject_Add(notcurses_ext
-                ${_nc_source}
-                PREFIX "${CMAKE_BINARY_DIR}/notcurses"
-                BINARY_DIR "${_nc_bin}"
-                DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-                PATCH_COMMAND ${CMAKE_COMMAND} -P "${CMAKE_SOURCE_DIR}/cmake/NotcursesTmuxDa1.cmake"
-                CMAKE_ARGS
-                    -DCMAKE_BUILD_TYPE=Release
-                    -DUSE_MULTIMEDIA=none
-                    -DUSE_PANDOC=OFF
-                    -DUSE_DOCTEST=OFF
-                    -DUSE_POC=OFF
-                    -DUSE_CXX=OFF
-                    -DUSE_STATIC=ON
-                    -DUSE_DEFLATE=OFF
-                    -DUSE_GPM=OFF
-                    -DUSE_QRCODEGEN=OFF
-                    -DBUILD_EXECUTABLES=OFF
-                    -DBUILD_FFI_LIBRARY=OFF
-                    -DBUILD_TESTING=OFF
-                BUILD_COMMAND ${CMAKE_COMMAND} --build "${_nc_bin}" --target notcurses-core-static
-                INSTALL_COMMAND ""
-                BUILD_BYPRODUCTS "${_nc_lib}"
-                LOG_CONFIGURE TRUE
-                LOG_BUILD TRUE)
-            ExternalProject_Get_Property(notcurses_ext SOURCE_DIR)
-            add_library(ultragps_notcurses INTERFACE)
-            # Plain INTERFACE library: the include dir only exists after download
-            target_include_directories(ultragps_notcurses INTERFACE "${SOURCE_DIR}/include")
-            target_link_libraries(ultragps_notcurses INTERFACE
-                "${_nc_lib}" ${_unistring} ${TINFO_LIB} ${ZLIB_LIB} m Threads::Threads)
-            message(STATUS "TUI: bundled notcurses-core ${ULTRAGPS_NOTCURSES_VERSION} (static, tmux patch)")
-        endif()
-    elseif(ULTRAGPS_NOTCURSES STREQUAL "system")
-        if(PkgConfig_FOUND)
-            pkg_check_modules(NOTCURSES QUIET notcurses-core>=3.0)
-        endif()
-        if(NOTCURSES_FOUND)
-            find_library(NC_CORE_STATIC NAMES libnotcurses-core.a HINTS ${NOTCURSES_LIBRARY_DIRS})
-            find_library(DEFLATE_LIB NAMES deflate)
-            add_library(ultragps_notcurses INTERFACE)
-            target_include_directories(ultragps_notcurses INTERFACE ${NOTCURSES_INCLUDE_DIRS})
-            if(NC_CORE_STATIC AND _unistring AND TINFO_LIB)
-                # Static notcurses may need libdeflate or zlib, depending on how it was built
-                set(_nc_compress)
-                if(DEFLATE_LIB)
-                    list(APPEND _nc_compress ${DEFLATE_LIB})
-                endif()
-                if(ZLIB_LIB)
-                    list(APPEND _nc_compress ${ZLIB_LIB})
-                endif()
-                target_link_libraries(ultragps_notcurses INTERFACE
-                    ${NC_CORE_STATIC} ${_unistring} ${TINFO_LIB} ${_nc_compress} m Threads::Threads)
-                message(STATUS "TUI: system notcurses-core ${NOTCURSES_VERSION} (static: ${NC_CORE_STATIC})")
-            else()
-                target_link_libraries(ultragps_notcurses INTERFACE ${NOTCURSES_LINK_LIBRARIES})
-                set(ULTRAGPS_TUI_DYNAMIC_NOTCURSES ON)
-                message(STATUS "TUI: system notcurses-core ${NOTCURSES_VERSION} (shared)")
-            endif()
-            message(WARNING "TUI: unpatched notcurses hangs on startup inside tmux >= 3.4; "
-                            "prefer -DULTRAGPS_NOTCURSES=bundled")
-        else()
-            message(WARNING "TUI: notcurses-core not found via pkg-config - building without the TUI")
-            set(ULTRAGPS_TUI OFF)
-        endif()
-    else()
-        message(FATAL_ERROR "ULTRAGPS_NOTCURSES must be 'bundled' or 'system'")
+    if(NOT _unistring OR NOT TINFO_LIB OR NOT ZLIB_LIB)
+        message(FATAL_ERROR "TUI: notcurses needs libunistring-dev, libncurses-dev and zlib1g-dev. "
+                            "Install them, or configure with -DULTRAGPS_TUI=OFF (./build.sh --no-tui).")
     endif()
+
+    if(ULTRAGPS_TUI_TERMINAL STREQUAL "tmux")
+        set(_nc_patch ${CMAKE_COMMAND} -P "${CMAKE_SOURCE_DIR}/notcurses-tmux-patch-cmake/NotcursesTmuxDa1.cmake")
+    else()
+        set(_nc_patch "")
+    endif()
+
+    # One source copy and build tree per variant and commit, so switching
+    # either never reuses a stale (un)patched tree.
+    set(_nc_prefix "${CMAKE_BINARY_DIR}/notcurses-${ULTRAGPS_TUI_TERMINAL}-${_nc_short}")
+    set(_nc_src "${_nc_prefix}/src")
+    set(_nc_bin "${_nc_prefix}/build")
+    set(_nc_lib "${_nc_bin}/libnotcurses-core.a")
+    include(ExternalProject)
+    ExternalProject_Add(notcurses_ext
+        PREFIX "${_nc_prefix}"
+        SOURCE_DIR "${_nc_src}"
+        BINARY_DIR "${_nc_bin}"
+        # "Download" = copy the submodule checkout, so the patch never touches it
+        DOWNLOAD_COMMAND ${CMAKE_COMMAND} -E copy_directory "${_nc_submodule}" "${_nc_src}"
+        PATCH_COMMAND ${_nc_patch}
+        CMAKE_ARGS
+            -DCMAKE_BUILD_TYPE=Release
+            -DUSE_MULTIMEDIA=none
+            -DUSE_PANDOC=OFF
+            -DUSE_DOCTEST=OFF
+            -DUSE_POC=OFF
+            -DUSE_CXX=OFF
+            -DUSE_STATIC=ON
+            -DUSE_DEFLATE=OFF
+            -DUSE_GPM=OFF
+            -DUSE_QRCODEGEN=OFF
+            -DBUILD_EXECUTABLES=OFF
+            -DBUILD_FFI_LIBRARY=OFF
+            -DBUILD_TESTING=OFF
+        BUILD_COMMAND ${CMAKE_COMMAND} --build "${_nc_bin}" --target notcurses-core-static
+        INSTALL_COMMAND ""
+        BUILD_BYPRODUCTS "${_nc_lib}"
+        LOG_CONFIGURE TRUE
+        LOG_BUILD TRUE)
+    add_library(ultragps_notcurses INTERFACE)
+    # The headers are the same in both variants (the patch only touches in.c)
+    target_include_directories(ultragps_notcurses INTERFACE "${_nc_submodule}/include")
+    target_link_libraries(ultragps_notcurses INTERFACE
+        "${_nc_lib}" ${_unistring} ${TINFO_LIB} ${ZLIB_LIB} m Threads::Threads)
+    add_dependencies(ultragps_notcurses notcurses_ext)
+    message(STATUS "TUI: notcurses-core ${_nc_short} from submodule, "
+                   "${ULTRAGPS_TUI_TERMINAL} variant (static)")
 endif()
 
 # Add the main executable along with its modules
@@ -199,9 +194,7 @@ if(ULTRAGPS_TUI)
         TuiModule/screens/helpScreen.cpp
     )
     target_link_libraries(UltraGpsXY PRIVATE ultragps_notcurses)
-    if(TARGET notcurses_ext)
-        add_dependencies(UltraGpsXY notcurses_ext)
-    endif()
+    add_dependencies(UltraGpsXY notcurses_ext)
     target_compile_definitions(UltraGpsXY PRIVATE ULTRAGPS_HAVE_TUI=1)
 else()
     target_compile_definitions(UltraGpsXY PRIVATE ULTRAGPS_HAVE_TUI=0)
@@ -239,13 +232,24 @@ install(TARGETS UltraGpsXY
 #       cmake -S . -B build
 #       cmake --build build
 #       cpack --config build/CPackConfig.cmake -G DEB
-#   producing e.g. ultragps-xy_<version>_amd64.deb in the build directory.
+#   producing e.g. ultragps-xy_<version>_amd64.deb in the build directory
+#   (ultragps-xy-tmux_... with -DULTRAGPS_TUI_TERMINAL=tmux).
 # ---------------------------------------------------------------------------
 set(CPACK_GENERATOR "DEB")
-set(CPACK_PACKAGE_NAME "ultragps-xy")
+# The tmux variant is a separate package that replaces the default one (both
+# install /usr/bin/UltraGpsXY), so its .deb can sit next to the bash one.
+if(ULTRAGPS_TUI AND ULTRAGPS_TUI_TERMINAL STREQUAL "tmux")
+    set(CPACK_PACKAGE_NAME "ultragps-xy-tmux")
+    set(CPACK_DEBIAN_PACKAGE_CONFLICTS "ultragps-xy")
+    set(CPACK_DEBIAN_PACKAGE_REPLACES "ultragps-xy")
+    set(CPACK_DEBIAN_PACKAGE_PROVIDES "ultragps-xy")
+else()
+    set(CPACK_PACKAGE_NAME "ultragps-xy")
+endif()
 set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
 if(ULTRAGPS_TUI)
-    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "${PROJECT_DESCRIPTION} (with --tui terminal UI)")
+    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
+        "${PROJECT_DESCRIPTION} (with --tui terminal UI, ${ULTRAGPS_TUI_TERMINAL} build)")
 else()
     set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "${PROJECT_DESCRIPTION}")
 endif()
@@ -257,18 +261,10 @@ set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
 # Auto-resolve runtime dependencies (libc6, libstdc++6, libgcc-s1, ...) from
 # the linked binary rather than hard-coding them.
 #
-# With the default bundled notcurses (ULTRAGPS_NOTCURSES=bundled, built with
-# USE_DEFLATE=OFF) or a static system archive, the binary's NEEDED list is only
-# libc/libstdc++/libgcc_s/libm/libtinfo/libz, all owned by packages, so
-# shlibdeps works unchanged. A *shared* system notcurses
-# (ULTRAGPS_NOTCURSES=system finding only a .so) is not packaged: the distro
-# libnotcurses-core3 lacks the tmux fix, and a copy in /usr/local is owned by
-# no package so dpkg-shlibdeps fails. build.sh deb refuses that case too.
+# notcurses-core is built from the submodule with USE_DEFLATE=OFF and linked
+# statically, so the binary's NEEDED list is only
+# libc/libstdc++/libgcc_s/libm/libtinfo/libz, all owned by packages, and
+# shlibdeps works unchanged.
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
-if(ULTRAGPS_TUI_DYNAMIC_NOTCURSES)
-    message(WARNING "notcurses is linked dynamically: 'cpack -G DEB' is not "
-                    "supported for this build. Use the default "
-                    "-DULTRAGPS_NOTCURSES=bundled to make a .deb.")
-endif()
 
 include(CPack)

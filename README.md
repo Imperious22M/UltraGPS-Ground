@@ -21,11 +21,14 @@ hardware to the network. It:
   receiver ticks with each receiver's jitter, a 60 s graph per receiver, a log
   of every serial line, the server status and connected clients, a settings
   screen (baud/port reopen, client limit, base-station commands) and a help
-  screen with the command reference. It works inside tmux.
+  screen with the command reference. Build it with `--tmux` to run it inside
+  tmux (see below).
 
 It is a single C++17 executable. The third-party libraries (`spdlog`,
 `argparse`) are vendored as git submodules and statically linked (the
-`tomlplusplus` submodule is still checked out but no longer used). notcurses-core is downloaded at build time, patched for tmux and
+`tomlplusplus` submodule is still checked out but no longer used).
+notcurses-core is also a submodule (`notcurses/`, pinned to v3.0.17); it is
+built during the CMake build (patched for tmux in the tmux variant) and
 statically linked. The installed binary only needs distro libraries (`libc6`,
 `libstdc++6`, `libtinfo6`, `zlib1g`).
 
@@ -40,9 +43,8 @@ for architecture, usage, and design notes.
 - A C++17 compiler (GCC or Clang) and CMake ≥ 3.15
 - `git` (the third-party libraries are git submodules)
 - `dpkg`/`cpack` — only needed to build the `.deb` package
-- For the TUI: `pkg-config libunistring-dev libncurses-dev zlib1g-dev`, plus
-  network access on the first build to download notcurses (use `--no-tui` to
-  skip it)
+- For the TUI: `libunistring-dev libncurses-dev zlib1g-dev` (use `--no-tui`
+  to build without it)
 
 Clone with submodules:
 
@@ -61,7 +63,8 @@ prebuilt Debian package. Download the latest `.deb` from the
 and install it:
 
 ```bash
-sudo dpkg -i ultragps-xy_*_amd64.deb
+sudo dpkg -i ultragps-xy_*_amd64.deb       # plain terminal
+sudo dpkg -i ultragps-xy-tmux_*_amd64.deb  # or: TUI inside tmux
 ```
 
 This installs `UltraGpsXY` to `/usr/bin` (on your `PATH`) and pulls in its
@@ -95,6 +98,8 @@ previewing the docs. Run it from the repository root:
 | Option | Applies to | Effect |
 |--------|-----------|--------|
 | `-v`, `--verbose` | `build` | Configure with `-DVERBOSE_LOGGING=ON` (debug build, `SPDLOG_*` macros active) |
+| `--bash` | `build`, `deb` | Build the TUI for a plain terminal with stock notcurses (`-DULTRAGPS_TUI_TERMINAL=bash`, the default) |
+| `--tmux` | `build`, `deb` | Build the TUI for tmux, with the tmux patch applied to notcurses (`-DULTRAGPS_TUI_TERMINAL=tmux`) |
 | `--no-tui` | `build`, `deb` | Build without the notcurses terminal UI (`-DULTRAGPS_TUI=OFF`) |
 | `-h`, `--help` | — | Show usage |
 
@@ -103,7 +108,12 @@ previewing the docs. Run it from the repository root:
 ```bash
 ./build.sh build            # optimised binary → ./build/UltraGpsXY
 ./build.sh build --verbose  # debug build with verbose logging compiled in
+./build.sh build --tmux     # TUI build that also starts inside tmux
 ```
+
+The TUI is built in by default, in the **bash** variant (stock notcurses, for a
+plain terminal). Stock notcurses hangs at startup inside tmux 3.4 or newer, so
+use `--tmux` if you run `UltraGpsXY --tui` inside tmux.
 
 Run it:
 
@@ -122,8 +132,12 @@ Common options (see the docs or `UltraGpsXY --help` for the full list):
 
 ```bash
 ./build.sh deb              # → ./build/ultragps-xy_<version>_amd64.deb
+./build.sh deb --tmux       # → ./build/ultragps-xy-tmux_<version>_amd64.deb
 sudo dpkg -i build/ultragps-xy_*_amd64.deb
 ```
+
+The tmux package is named `ultragps-xy-tmux`. It installs the same
+`/usr/bin/UltraGpsXY` and replaces `ultragps-xy` (only one can be installed).
 
 This installs the binary to `/usr/bin/UltraGpsXY` (on your `PATH`) and resolves
 its runtime dependencies (`libc6`, `libstdc++6`, `libgcc-s1`) automatically.
