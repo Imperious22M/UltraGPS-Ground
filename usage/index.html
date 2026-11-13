@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://imperious22m.github.io/UltraGPS-Ground/usage/" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Usage - UltraGPS Ground Station</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Usage";
+        var mkdocs_page_input_path = "usage.md";
+        var mkdocs_page_url = "/UltraGPS-Ground/usage/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> UltraGPS Ground Station
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../architecture/">Architecture</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../installation/">Installation</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Usage</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#command-line-options">Command-line options</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#examples">Examples</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#command-reference">Command reference</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#client-limit">Client limit</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#terminal-ui">Terminal UI</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#tmux-zsh-notes">tmux / zsh notes</a>
+    </li>
+        </ul>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../developer-guide/">Developer's Guide</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">UltraGPS Ground Station</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Usage</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/Imperious22M/UltraGPS-Ground/edit/master/docs/usage.md">Edit on Imperious22M/UltraGPS-Ground</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link">&para;</a></h1>
+<p>Run the program directly (if installed via the <code>.deb</code>, <code>UltraGpsXY</code> is on your
+<code>PATH</code>; otherwise use <code>./build/UltraGpsXY</code>):</p>
+<pre><code class="language-bash">UltraGpsXY [options]
+</code></pre>
+<p>On startup it prints a banner summarising the resolved serial port, baud rate,
+IP address, and ports, then initialises the Comms module (serial link) and
+starts the Server module.</p>
+<h2 id="command-line-options">Command-line options<a class="headerlink" href="#command-line-options" title="Permanent link">&para;</a></h2>
+<p>All configuration is done through flags — there is no configuration file read at
+runtime.</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Argument</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-v</code>, <code>--verbose</code></td>
+<td>—</td>
+<td>off</td>
+<td>Enable verbose (debug-level) logging at runtime</td>
+</tr>
+<tr>
+<td><code>-s</code>, <code>--serial-port</code></td>
+<td>path</td>
+<td><code>/dev/ttyACM0</code></td>
+<td>Serial port for the base-station Arduino</td>
+</tr>
+<tr>
+<td><code>-b</code>, <code>--baud-rate</code></td>
+<td>uint</td>
+<td><code>38400</code></td>
+<td>Baud rate; one of <code>9600</code>, <code>19200</code>, <code>38400</code>, <code>57600</code>, <code>115200</code></td>
+</tr>
+<tr>
+<td><code>-n</code>, <code>--net-device</code></td>
+<td>name</td>
+<td><em>(auto)</em></td>
+<td>Network interface whose IPv4 address is shown as the server address (default: auto-detect). The server always listens on every interface</td>
+</tr>
+<tr>
+<td><code>-t</code>, <code>--tcp-port</code></td>
+<td>uint</td>
+<td><code>9000</code></td>
+<td>TCP port for the command server</td>
+</tr>
+<tr>
+<td><code>-u</code>, <code>--udp-port</code></td>
+<td>uint</td>
+<td><code>9001</code></td>
+<td>UDP port for the continuous data stream</td>
+</tr>
+<tr>
+<td><code>-T</code>, <code>--server-timeout</code></td>
+<td>uint (ms)</td>
+<td><code>5000</code></td>
+<td>Accepted for compatibility; currently unused</td>
+</tr>
+<tr>
+<td><code>-m</code>, <code>--max-clients</code></td>
+<td>uint</td>
+<td><code>1</code></td>
+<td>Maximum number of TCP clients accepted at once. Extra connections receive <code>E: server full</code> and are closed</td>
+</tr>
+<tr>
+<td><code>--no-client-limit</code></td>
+<td>—</td>
+<td>off</td>
+<td>Accept any number of TCP clients (the behaviour before the limit existed)</td>
+</tr>
+<tr>
+<td><code>--tui</code></td>
+<td>—</td>
+<td>off</td>
+<td>Run the interactive terminal UI (needs a TTY)</td>
+</tr>
+<tr>
+<td><code>--log-file</code></td>
+<td>path</td>
+<td><code>~/.local/state/ultragps/ultragpsxy.log</code></td>
+<td>Where logs go while the TUI owns the terminal</td>
+</tr>
+</tbody>
+</table>
+<p><code>UltraGpsXY --help</code> lists these options and then prints the command reference
+(the same text as the <code>help</code> command, see <a href="#command-reference">Command reference</a>).</p>
+<h2 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h2>
+<p>Run with defaults:</p>
+<pre><code class="language-bash">UltraGpsXY
+</code></pre>
+<p>Custom serial port and baud rate:</p>
+<pre><code class="language-bash">UltraGpsXY --serial-port /dev/ttyUSB0 --baud-rate 115200
+</code></pre>
+<p>Report a specific interface's address, use other ports, with verbose logging:</p>
+<pre><code class="language-bash">UltraGpsXY --net-device eth0 --tcp-port 9100 --udp-port 9101 --verbose
+</code></pre>
+<div class="admonition note">
+<p class="admonition-title">Runtime verbose vs. compile-time verbose</p>
+<p><code>--verbose</code> raises the <strong>runtime</strong> log level to debug for direct <code>spdlog</code>
+calls. In any build this prints every message the ground station receives:
+TCP commands from clients, serial responses to normal commands, and serial
+continuous-mode data. The <code>SPDLOG_*</code> macros (fine-grained loop tracing) are
+separate and are only compiled in when the binary is built with
+<code>-DVERBOSE_LOGGING=ON</code> (see <a href="../installation/">Installation</a>).</p>
+</div>
+<h2 id="command-reference">Command reference<a class="headerlink" href="#command-reference" title="Permanent link">&para;</a></h2>
+<p>Sending <code>help</code> or <code>?</code> (any case) prints the reference of every command the
+ground station accepts: each base-station command with its syntax, what it
+does, its reply format and an example, plus the ground station's own
+behaviour. The ground station answers it itself and never sends it to the
+base-station, also while the base-station is booting or the serial port is
+closed. It works everywhere a command can be given:</p>
+<ul>
+<li>
+<p><strong>TCP command port:</strong> the reference comes back as text lines, to the client
+  that asked only (other replies go to every connected client).</p>
+<p><img alt="help sent from a TCP client with nc" src="../images/tcp-help.png" /></p>
+<p><em><code>help</code> sent from <code>nc</code>. This test server was started with <code>-t 9100</code>; by
+default the command port is 9000.</em></p>
+</li>
+<li>
+<p><strong>TUI:</strong> on the MAIN screen command line, or as the settings RAW COMMAND, it
+  prints the reference into the serial link log (scrolled to its first line;
+  PgDn reads on). The F3 HELP screen shows it too, with the TUI keys.</p>
+<p><img alt="help typed on the TUI MAIN screen, printed into the serial link log" src="../images/tui-help-log.png" /></p>
+<p><em><code>help</code> typed on the MAIN screen command line: the reference is printed
+into the SERIAL LINK log on the right.</em></p>
+<p><img alt="the TUI F3 HELP screen" src="../images/tui-help-screen.png" /></p>
+<p><em>The F3 HELP screen.</em></p>
+</li>
+<li>
+<p><strong>Command line:</strong> <code>UltraGpsXY --help</code> prints it after the option list.</p>
+<p><img alt="UltraGpsXY --help output" src="../images/cli-help.png" /></p>
+<p><em><code>UltraGpsXY --help</code>: the option list, then the command reference.</em></p>
+</li>
+</ul>
+<h2 id="client-limit">Client limit<a class="headerlink" href="#client-limit" title="Permanent link">&para;</a></h2>
+<p>By default only <strong>one</strong> TCP client (the control program) is accepted. The limit
+applies only to new connections; lowering it never drops existing sessions. UDP
+peers are not limited: UDP has no connection, and the control program registers
+with a single datagram. The limit can be changed or switched off at runtime from
+the TUI settings screen.</p>
+<h2 id="terminal-ui">Terminal UI<a class="headerlink" href="#terminal-ui" title="Permanent link">&para;</a></h2>
+<pre><code class="language-bash">UltraGpsXY --tui -s /dev/ttyACM0
+</code></pre>
+<p><strong>MAIN screen (F1)</strong></p>
+<ul>
+<li>Block-digit tick readout for each of the six receivers. <code>NO ECHO</code> means a 0
+  reading.</li>
+<li>Under each readout, <code>JITTER &lt;n&gt;</code> (<code>JIT &lt;n&gt;</code> when the cell is narrow): the
+  difference, in ticks, between the mean of that receiver's non-zero readings
+  of the last 1 s and the mean of those of the last 10 s (exact rolling
+  windows; 0 = no echo is left out). A higher number means the readings are
+  moving, i.e. the transmitter is changing a lot. It is green below 5, amber
+  below 20 and red from 20, and shows <code>--</code> while either window has no reading
+  (for example 1 s after the last reading, when not in continuous mode).</li>
+<li>One small graph per receiver (R1 to R6) of its ticks over the last 60 s.
+  Each graph shows the per-second maximum, scales itself to that receiver's own
+  minimum and maximum, and has the receiver's current reading in its title and
+  the scale range in its bottom border. A red dot marks a second in which that
+  receiver had no echo. The graphs form a grid that fits the terminal: 3 x 2 at
+  80x24 and 2 x 3 on larger terminals such as 160x50.</li>
+<li>The serial link log. Lines marked <code>&gt;</code> were sent to the base-station, <code>&lt;</code> were
+  received from it, <code>!</code> are log messages and <code>*</code> are TUI messages.</li>
+<li>A command line: type any base-station command (see the table below) or any
+  raw line, then press Enter. <code>help</code> or <code>?</code> prints the command reference into
+  the log instead (nothing is sent).</li>
+</ul>
+<p><strong>SETTINGS screen (F2 or Tab)</strong></p>
+<ul>
+<li>Select an item with Up/Down (PgUp/PgDn jump 8 items, Home/End go to the first
+  and last item), press Enter to edit it, type the value, and press Enter to
+  apply it. Esc cancels. The list scrolls (arrows on the frame show there is
+  more), and selecting the last item of a section also brings the status rows
+  below it into view.</li>
+<li>The list has four sections: SERIAL LINK (HOST SIDE), NETWORK SERVER, BASE
+  STATION (base-station commands, then its status) and TRANSMITTER STATION
+  SETTINGS (the transmitter reset, burst delay and trigger rate, then their
+  status).</li>
+<li>Choice items (baud rates, log level) also cycle with Left/Right.</li>
+<li>Changing the <strong>host baud rate</strong> or <strong>serial port</strong> closes and reopens the
+  host side of the port only. The TUI then waits about 7 s for the Uno to
+  reboot, because opening the port resets it through DTR. The host baud rate
+  must match the rate stored in the base station (38400 by default); it is
+  shown red when the base station has reported a different rate.</li>
+<li>
+<p>BASE-STATION BAUD (B) sends <code>B &lt;baud&gt;</code>. The base station stores the rate,
+  replies <code>B: &lt;baud&gt;</code> at the old rate and then reboots at the new rate (any
+  valid rate reboots it, even the one in use). The ground station shows
+  BOOTING and sends nothing for the same 7 s it waits after opening the port;
+  only then does it switch the host side to the new rate. It switches in place
+  on the open port: closing and reopening it would pulse DTR and reboot the Uno
+  a second time. If the in-place switch fails, it reopens the port and waits
+  out that boot too. Then it re-queries the settings. The rate is kept across
+  resets. QUERY BAUD sends <code>B 0</code>, which changes nothing and reports the rate in
+  force. The same happens when a TCP client sends <code>B</code>, and after <code>M</code> when the
+  stored rate was not 38400 (the base station then reboots back to 38400).</p>
+</li>
+<li>
+<p>The panel on the right shows the server IP, ports, client count and limit,
+  and each connected TCP client and UDP peer with how long it has been
+  connected.</p>
+</li>
+<li>Commands are sent with Enter. Reset (R), delay search (D), default delay (E)
+  and reset all settings (M) ask for confirmation first.</li>
+<li>TRANSMITTER STATION SETTINGS groups settings that are part of the base
+  station (its commands, stored in its EEPROM) but apply to both the base
+  station and the transmitter station. The transmitter has no serial command
+  interface of its own; the base station passes these settings on to it:<ul>
+<li>RESET (R) sends a reset packet; the transmitter reboots.</li>
+<li>DELAY SEARCH (D) and DEFAULT DELAY (E) set the burst delay, which every
+  trigger packet carries (the transmitter waits that long after its timer
+  match before firing).</li>
+<li>TRIGGER HZ (F) sets the trigger rate of both stations; the base station
+  sends the new Timer1 TOP to the transmitter, which stores it in its
+  EEPROM and reboots. <code>M</code> and every base-station boot send the rate too.</li>
+<li>Sync packets keep the two Timer1s phase-locked; nothing to configure.</li>
+</ul>
+</li>
+<li>The NOTE rows at the top of that section say the same: SET ON BASE-STATION,
+  APPLIES TO BASE + TRANSMITTER.</li>
+<li>SAMPLING MS (H) takes a value from 1 to 80 % of the trigger period (80 ms at
+  10 HZ) and sends <code>H &lt;ms&gt;</code>. Values outside that range
+  are rejected in the TUI (the upper limit follows the last reported trigger
+  rate). QUERY SAMPLING sends <code>H 0</code>: the firmware
+  changes nothing for a value out of range and replies with the sampling time
+  still in force, so this reads the setting without changing it.</li>
+<li>TRIGGER HZ 1-50 (F) takes a rate from 1 to 50 Hz and sends <code>F &lt;Hz&gt;</code>. The base
+  station restarts its trigger timer, tells the transmitter station (which
+  stores the rate and resets), and sets the sampling time to its maximum, 80 %
+  of the new period. QUERY RATE sends <code>F 0</code>, which changes nothing and reports the rate,
+  Timer1 TOP and sampling time in force. This is experimental as the system is meant to be used at a rate of 10HZ.</li>
+<li>The BASE STATION status rows show the sampling time and its Timer1 counts
+  (16 us each, from <code>H</code> or <code>F</code>), the stored baud rate (from <code>B</code>, compared with
+  the host's) and the last reply line. The TRANSMITTER STATION SETTINGS status rows
+  show the burst delay in force (from <code>E</code> or a <code>D</code> result), the trigger rate
+  and Timer1 TOP (from <code>F</code>), when a rate packet (<code>F &lt;1..50&gt;</code> or <code>M</code>) and a
+  reset packet (<code>R</code>) were last sent, the last delay-search result and how
+  many <code>D:</code> lines the current or last sweep has produced. <code>?</code> means the base station
+  has not reported that value yet. After <code>M</code> the status shows the firmware
+  defaults (2000 us, 80 ms / 5000 counts, 10 Hz / TOP 6249).</li>
+</ul>
+<p><strong>HELP screen (F3)</strong></p>
+<ul>
+<li>The command reference (the same text as the <code>help</code> command), then the TUI
+  keys and what the MAIN screen readouts mean. Up/Down scroll a line,
+  PgUp/PgDn a page, Home/End go to the top and the bottom, Esc goes back to
+  MAIN.</li>
+</ul>
+<p><strong>Base-station commands</strong> (firmware <code>base-station/src/command_control.*</code>). All
+of them except <code>C</code> end continuous mode. TCP clients can send the same commands.
+<code>help</code> or <code>?</code> prints the full reference (see <a href="#command-reference">Command reference</a>).</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Argument</th>
+<th>Reply</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>P</code></td>
+<td>—</td>
+<td><code>N: t0, t1, t2, t3, t4, t5</code></td>
+<td>One pulse; tick count per receiver, 0 = no echo</td>
+</tr>
+<tr>
+<td><code>S</code></td>
+<td>—</td>
+<td><code>N: t0, ..., t5</code></td>
+<td>One pulse with simulated tick counts</td>
+</tr>
+<tr>
+<td><code>C</code></td>
+<td>—</td>
+<td><code>C: t0, ..., t5</code> stream</td>
+<td>Continuous mode, about 10 lines/s</td>
+</tr>
+<tr>
+<td><code>R</code></td>
+<td>—</td>
+<td><code>N: R</code></td>
+<td>Reset the transmitter station over the radio (the base station may reset itself too, if its EEPROM setting says so)</td>
+</tr>
+<tr>
+<td><code>D</code></td>
+<td>—</td>
+<td><code>D: &lt;us&gt;, &lt;mean&gt;, &lt;valid&gt;/&lt;total&gt;</code> per step, then the result in the same format</td>
+<td>Burst-delay sweep, 0 to 500 us in 10 us steps by default (about 16 s); stores the winning delay</td>
+</tr>
+<tr>
+<td><code>E</code></td>
+<td>—</td>
+<td><code>E: &lt;us&gt;</code></td>
+<td>Store the default burst delay (2000 us)</td>
+</tr>
+<tr>
+<td><code>M</code></td>
+<td>—</td>
+<td><code>M: OK</code></td>
+<td>Reset every EEPROM setting to its default (including the 10 Hz trigger rate, re-sent to the transmitter). If the stored baud rate was not 38400, the base station reboots at 38400; the ground station waits the boot time (7 s), then switches the host side back to 38400</td>
+</tr>
+<tr>
+<td><code>H</code></td>
+<td><code>&lt;ms&gt;</code> integer, <code>H 80</code> or <code>H80</code></td>
+<td><code>H: &lt;ms&gt;, &lt;Timer1 counts&gt;</code></td>
+<td>Set the sampling time, 1 ms to 80 % of the trigger period (at most 1000). Counts = ms x 1000 / 16 (<code>H: 80, 5000</code>). Out of range changes nothing (a query)</td>
+</tr>
+<tr>
+<td><code>B</code></td>
+<td><code>&lt;baud&gt;</code> integer, <code>B 57600</code> or <code>B57600</code></td>
+<td><code>B: &lt;stored baud&gt;</code> (the new rate after a change, the current one for a query)</td>
+<td>Set the base-station serial baud rate (stored in EEPROM). The reply goes out at the old rate, then the base station reboots at the new rate. The ground station waits the boot time (7 s), sending nothing, then switches the host side to the new rate in place if it supports it (9600, 19200, 38400, 57600, 115200). Rates the firmware accepts but the host cannot open (e.g. 14400, 250000) are refused by the ground station and never sent; TCP clients get <code>ERR: B &lt;baud&gt; unsupported by host</code>. An invalid rate changes nothing and does not reboot (a query, e.g. <code>B 0</code>)</td>
+</tr>
+<tr>
+<td><code>F</code></td>
+<td><code>&lt;Hz&gt;</code> integer, <code>F 20</code> or <code>F20</code></td>
+<td><code>F: &lt;Hz&gt;, &lt;Timer1 TOP&gt;, &lt;sampling ms&gt;</code></td>
+<td>Set the trigger rate on both stations, 1 to 50 Hz (default 10, <code>F: 10, 6249, 80</code>). TOP = round(62500 / Hz) - 1. The transmitter station stores the rate and reboots into it when the rate is new to it; the sampling time is set to its maximum, 80 % of the new period. Out of range changes nothing (a query)</td>
+</tr>
+</tbody>
+</table>
+<p>The firmware ignores a line it cannot decode (unknown letter, or <code>H</code> without a
+number) and sends no reply. <code>R</code>, <code>D</code>, <code>E</code>, <code>F</code> and <code>M</code> also act on the
+transmitter station over the radio. The ground station drops such lines from TCP
+clients. The TUI sends them anyway, so any reply shows in the log.</p>
+<ul>
+<li>A port or baud change that fails to open restores the previous port and baud.</li>
+</ul>
+<p><strong>Keys:</strong> F1/F2/F3 switch to the MAIN, SETTINGS and HELP screens and Tab goes
+to the next one, PgUp/PgDn scroll the log, Up/Down recall command history,
+Ctrl-L redraws, and F10, Ctrl-Q or Ctrl-C quit and restore the terminal.</p>
+<h3 id="tmux-zsh-notes">tmux / zsh notes<a class="headerlink" href="#tmux-zsh-notes" title="Permanent link">&para;</a></h3>
+<p>Inside tmux 3.4 or newer the TUI needs the <strong>tmux build</strong>
+(<code>./build.sh build --tmux</code>, or the <code>ultragps-xy-tmux</code> package). The default
+bash build hangs at startup there. In a plain terminal both builds work.</p>
+<p>The TUI only needs a UTF-8 terminal and a working terminfo entry
+(<code>tmux-256color</code>, <code>screen-256color</code> and <code>xterm-256color</code> all work). The
+glyphs are box-drawing and block elements plus a few common single-width
+symbols (… · ▲ ▼ ▶ ✖), and no mouse is needed. Suggested
+<code>~/.tmux.conf</code>:</p>
+<pre><code>set -g default-terminal &quot;tmux-256color&quot;
+set -as terminal-features ',*:RGB'   # 24-bit colour (otherwise a 256-colour approximation)
+set -sg escape-time 10               # tmux's 500 ms default makes Esc sluggish
+</code></pre>
+<p>Pane resizes are handled live. If the terminal is ever left in a bad state
+(for example after a <code>kill -9</code>), run <code>reset</code> or <code>stty sane</code>.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../installation/" class="btn btn-neutral float-left" title="Installation"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../developer-guide/" class="btn btn-neutral float-right" title="Developer's Guide">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/Imperious22M/UltraGPS-Ground" class="fa fa-code-fork" style="color: #fcfcfc"> Imperious22M/UltraGPS-Ground</a>
+        </span>
+    
+    
+      <span><a href="../installation/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../developer-guide/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
